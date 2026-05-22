@@ -10,6 +10,8 @@ import '../konsultasi/konsultasi.dart';
 import '../berita/informasi.dart';
 import '../dokter/dokter.dart';
 import '../admin/dashboard.dart';
+import 'package:yomans_konseling/screens/halaman_akun/profile_screen.dart'; 
+// Sesuaikan dengan letak path struktur folder proyekmu
 
 class HomePage extends StatefulWidget {
   @override
@@ -250,7 +252,7 @@ class _HomePageState extends State<HomePage> {
       ),
 
       // ================= NAVIGATION BAR BAWAH =================
-      bottomNavigationBar: BottomNavigationBar(
+     bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         type: BottomNavigationBarType.fixed,
         selectedItemColor: const Color(0xFF2E6A3F), 
@@ -263,14 +265,17 @@ class _HomePageState extends State<HomePage> {
           if (index == 1) {
             Navigator.push(context, MaterialPageRoute(builder: (_) => Informasi()));
           } else if (index == 2) {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => HomePage()));
+            Navigator.push(context, MaterialPageRoute(builder: (_) => HomePage())); // Pastikan ini halaman Pesanan kamu
+          } else if (index == 3) {
+            // Ditambahkan untuk navigasi ke halaman Profile
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileScreen()));
           }
         },
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: "Beranda"),
           BottomNavigationBarItem(icon: Icon(Icons.book_outlined), label: "Informasi"),
           BottomNavigationBarItem(icon: Icon(Icons.shopping_cart_outlined), label: "Pesanan"),
-          BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: "Profile"),
+          BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: "Profile"), // index == 3
         ],
       ),
     );
