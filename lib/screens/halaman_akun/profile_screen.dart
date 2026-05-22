@@ -1,15 +1,48 @@
 import 'package:flutter/material.dart';
-import 'package:yomans_konseling/screens/halaman_akun/edit_profile.dart' show EditProfileScreen;
+import 'package:yomans_konseling/screens/halaman_akun/edit_profile.dart';
+import 'package:yomans_konseling/screens/halaman_akun/ganti_password.dart';
+import 'notification_screen.dart';
+
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
-  // Warna Teal/Toska sesuai referensi gambar
   static const Color primaryTeal = Color(0xFF318F95);
+
+  // Fungsi untuk memunculkan Popup Dialog Konfirmasi Sign Out
+  void _showSignOutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          title: const Text('Sign Out', style: TextStyle(fontWeight: FontWeight.bold)),
+          content: const Text('Apakah Anda yakin ingin keluar dari akun ini?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Batal', style: TextStyle(color: Colors.grey)),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                // Tambahkan logika logout kamu di sini (misal: hapus token/pindah ke hal login)
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Berhasil keluar')),
+                );
+              },
+              child: const Text('Keluar', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -24,7 +57,6 @@ class ProfileScreen extends StatelessWidget {
         child: Column(
           children: [
             const SizedBox(height: 20),
-            // Foto Profil dengan Aksen Tombol Edit Kecil
             Center(
               child: Stack(
                 children: [
@@ -35,7 +67,7 @@ class ProfileScreen extends StatelessWidget {
                       shape: BoxShape.circle,
                       border: Border.all(color: Colors.grey.shade300, width: 2),
                       image: const DecorationImage(
-                        image: NetworkImage('https://via.placeholder.com/150'), // Ganti dengan asset/foto kamu
+                        image: NetworkImage('https://via.placeholder.com/150'),
                         fit: BoxFit.cover,
                       ),
                     ),
@@ -53,7 +85,6 @@ class ProfileScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            // Nama & Role
             const Text(
               'Albert Florest',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1A1A1A)),
@@ -65,7 +96,7 @@ class ProfileScreen extends StatelessWidget {
             ),
             const SizedBox(height: 32),
             
-            // Menu Navigasi (List Items)
+            // MENU NAVIGASI (Shipping Address Sudah Dihapus)
             ProfileMenuItem(
               icon: Icons.person_outline,
               title: 'Edit Profile',
@@ -79,26 +110,31 @@ class ProfileScreen extends StatelessWidget {
             ProfileMenuItem(
               icon: Icons.notifications_none_outlined,
               title: 'Notification',
-              onTap: () {},
-            ),
-            ProfileMenuItem(
-              icon: Icons.location_on_outlined,
-              title: 'Shipping Address',
-              onTap: () {},
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const NotificationScreen()),
+                );
+              },
             ),
             ProfileMenuItem(
               icon: Icons.lock_open_outlined,
               title: 'Change Password',
-              onTap: () {},
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const ChangePasswordScreen()),
+                );
+              },
             ),
             
-            const SizedBox(height: 32),
-            // Tombol Sign Out
+            const SizedBox(height: 40),
+            // TOMBOL SIGN OUT
             SizedBox(
               width: double.infinity,
               height: 48,
               child: ElevatedButton.icon(
-                onPressed: () {},
+                onPressed: () => _showSignOutDialog(context),
                 icon: const Icon(Icons.logout, color: Colors.white, size: 18),
                 label: const Text(
                   'Sign Out',
@@ -107,9 +143,7 @@ class ProfileScreen extends StatelessWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primaryTeal,
                   elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
               ),
             ),
@@ -120,7 +154,6 @@ class ProfileScreen extends StatelessWidget {
   }
 }
 
-// Widget Reusable untuk Item Baris Menu
 class ProfileMenuItem extends StatelessWidget {
   final IconData icon;
   final String title;
