@@ -8,6 +8,10 @@ import joblib
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_mail import Mail, Message
 import random
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
 
@@ -15,9 +19,8 @@ app = Flask(__name__)
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = 'yawwdehh@gmail.com'
-app.config['MAIL_PASSWORD'] = 'zhkg ljfa wsgq stek'
-
+app.config['MAIL_USERNAME'] = os.getenv("MAIL_USERNAME")
+app.config['MAIL_PASSWORD'] = os.getenv("MAIL_PASSWORD")
 mail = Mail(app)
 
 # ================= CORS =================
