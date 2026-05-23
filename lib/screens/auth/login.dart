@@ -3,30 +3,52 @@ import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
+
 import '../admin/dashboard.dart';
 import '../home/home.dart';
-import 'register.dart';
+import '../auth/register.dart';
+import '../auth/forgot_password.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({Key? key}) : super(key: key);
+
+  const LoginPage({
+    Key? key,
+  }) : super(key: key);
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  State<LoginPage> createState() =>
+      _LoginPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
-  final user = TextEditingController();
-  final pass = TextEditingController();
+class _LoginPageState
+    extends State<LoginPage> {
 
+  // ================= CONTROLLER =================
+  final TextEditingController user =
+      TextEditingController();
+
+  final TextEditingController pass =
+      TextEditingController();
+
+  // ================= STATE =================
   bool isLoading = false;
 
+  bool obscurePassword = true;
+
+  // ================= LOGIN FUNCTION =================
   Future<void> doLogin() async {
 
     // VALIDASI INPUT
-    if (user.text.isEmpty || pass.text.isEmpty) {
+    if (
+        user.text.trim().isEmpty ||
+        pass.text.trim().isEmpty
+    ) {
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
+
         const SnackBar(
+
           content: Text(
             "Username & Password wajib diisi",
           ),
@@ -36,75 +58,148 @@ class _LoginPageState extends State<LoginPage> {
       return;
     }
 
-    setState(() => isLoading = true);
+    // START LOADING
+    setState(() {
+
+      isLoading = true;
+    });
 
     try {
 
-      final res = await ApiService.login(
-        user.text,
-        pass.text,
+      // ================= HIT API =================
+      final res =
+          await ApiService.login(
+
+        user.text.trim(),
+
+        pass.text.trim(),
       );
 
       // DEBUG RESPONSE
-      print("===== DEBUG RESPONSE LOGIN =====");
-      print("Isi respons: $res");
-      print("================================");
+      debugPrint(
+        "===== RESPONSE LOGIN =====",
+      );
 
-      // LOGIN SUCCESS
-      if (res != null && res['status'] == 'success') {
+      debugPrint(
+        res.toString(),
+      );
 
-        // AMBIL DATA USER
-        final Map<String, dynamic> userData =
+      // ================= LOGIN SUCCESS =================
+      if (
+          res != null &&
+          res['status'] == 'success'
+      ) {
+
+        // ================= USER DATA =================
+        final Map<String, dynamic>
+            userData =
             Map<String, dynamic>.from(
           res['data'],
         );
 
         // FALLBACK NAMA
-        if (!userData.containsKey('nama') &&
-            userData.containsKey('username')) {
+        if (
+            !userData.containsKey(
+              'nama',
+            ) &&
+            userData.containsKey(
+              'username',
+            )
+        ) {
 
-          userData['nama'] = userData['username'];
+          userData['nama'] =
+              userData['username'];
         }
 
-        // SIMPAN KE PROVIDER
-        Provider.of<AuthProvider>(
+        // ================= TOKEN =================
+        final String token =
+            res['token'] ?? '';
+
+        // VALIDASI TOKEN
+        if (token.isEmpty) {
+
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(
+
+            const SnackBar(
+
+              content: Text(
+                "Token login tidak ditemukan",
+              ),
+            ),
+          );
+
+          return;
+        }
+
+        // ================= SIMPAN SESSION =================
+        await Provider.of<AuthProvider>(
+
           context,
+
           listen: false,
-        ).setUser(userData);
 
-        // CEK ROLE ADMIN
-        final role = userData['role'];
+        ).setLogin(
 
-        // JIKA ADMIN
+          token: token,
+
+          userData: userData,
+        );
+
+        // ================= AMBIL ROLE =================
+        final String role =
+            userData['role'] ?? 'user';
+
+        // ================= CEK MOUNTED =================
+        if (!mounted) return;
+
+        // ================= PINDAH HALAMAN =================
         if (role == 'admin') {
 
           Navigator.pushReplacement(
+
             context,
+
             MaterialPageRoute(
-              builder: (_) => AdminDashboard(),
+
+              builder: (context) =>
+                  AdminDashboard(),
             ),
           );
 
         } else {
 
-          // USER BIASA
           Navigator.pushReplacement(
+
             context,
+
             MaterialPageRoute(
-              builder: (_) => HomePage(),
+
+              builder: (context) =>
+                  HomePage(),
             ),
           );
         }
 
       } else {
 
-        // LOGIN GAGAL
-        ScaffoldMessenger.of(context).showSnackBar(
+        // ================= LOGIN GAGAL =================
+        ScaffoldMessenger.of(context)
+            .showSnackBar(
+
           SnackBar(
+
             content: Text(
+
               res != null
-                  ? (res['message'] ?? "Login gagal")
-                  : "Tidak ada response dari server",
+
+                  ? (
+                      res['message'] ??
+                      "Login gagal"
+                    )
+
+                  : "Server tidak merespon",
             ),
           ),
         );
@@ -112,130 +207,415 @@ class _LoginPageState extends State<LoginPage> {
 
     } catch (e) {
 
-      // DEBUG ERROR
-      print("===== EROR SISTEM LOGIN =====");
-      print("Pesan Eror: $e");
-      print("=============================");
+      // ================= ERROR =================
+      debugPrint(
+        "===== LOGIN ERROR =====",
+      );
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+      debugPrint(
+        e.toString(),
+      );
+
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
+
+        SnackBar(
+
           content: Text(
-            "Terjadi kesalahan koneksi",
+            "Terjadi kesalahan: $e",
           ),
         ),
       );
 
     } finally {
 
-      setState(() => isLoading = false);
+      // STOP LOADING
+      if (mounted) {
+
+        setState(() {
+
+          isLoading = false;
+        });
+      }
     }
   }
 
+  // ================= DISPOSE =================
   @override
   void dispose() {
 
     user.dispose();
+
     pass.dispose();
 
     super.dispose();
   }
 
+  // ================= UI =================
   @override
   Widget build(BuildContext context) {
 
     return Scaffold(
 
-      body: Center(
+      backgroundColor: Colors.white,
 
-        child: SingleChildScrollView(
+      body: SafeArea(
 
-          padding: const EdgeInsets.all(20),
+        child: Center(
 
-          child: Column(
+          child: SingleChildScrollView(
 
-            children: [
+            padding:
+                const EdgeInsets.all(24),
 
-              // TITLE
-              const Text(
-                "Konseling App",
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
+            child: Column(
+
+              crossAxisAlignment:
+                  CrossAxisAlignment.stretch,
+
+              children: [
+
+                // ================= ICON =================
+                Container(
+
+                  width: 120,
+
+                  height: 120,
+
+                  decoration: BoxDecoration(
+
+                    color: Colors.blue
+                        .withOpacity(0.1),
+
+                    shape: BoxShape.circle,
+                  ),
+
+                  child: const Icon(
+
+                    Icons.health_and_safety,
+
+                    size: 70,
+
+                    color: Colors.blue,
+                  ),
                 ),
-              ),
 
-              const SizedBox(height: 30),
+                const SizedBox(height: 25),
 
-              // USERNAME
-              TextField(
-                controller: user,
-                decoration: const InputDecoration(
-                  labelText: "Username",
-                  border: OutlineInputBorder(),
+                // ================= TITLE =================
+                const Text(
+
+                  "Konseling App",
+
+                  textAlign: TextAlign.center,
+
+                  style: TextStyle(
+
+                    fontSize: 30,
+
+                    fontWeight:
+                        FontWeight.bold,
+
+                    color: Colors.black,
+                  ),
                 ),
-              ),
 
-              const SizedBox(height: 16),
+                const SizedBox(height: 10),
 
-              // PASSWORD
-              TextField(
-                controller: pass,
-                obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: "Password",
-                  border: OutlineInputBorder(),
+                const Text(
+
+                  "Silakan login untuk melanjutkan",
+
+                  textAlign: TextAlign.center,
+
+                  style: TextStyle(
+
+                    fontSize: 15,
+
+                    color: Colors.grey,
+                  ),
                 ),
-              ),
 
-              const SizedBox(height: 20),
+                const SizedBox(height: 40),
 
-              // BUTTON LOGIN
-              SizedBox(
-                width: double.infinity,
-                height: 50,
+                // ================= USERNAME =================
+                TextField(
 
-                child: ElevatedButton(
+                  controller: user,
 
-                  onPressed: isLoading
-                      ? null
-                      : doLogin,
+                  keyboardType:
+                      TextInputType.text,
 
-                  child: isLoading
+                  decoration:
+                      InputDecoration(
 
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
+                    labelText: "Username",
 
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
-                        )
+                    hintText:
+                        "Masukkan username",
 
-                      : const Text("Login"),
-                ),
-              ),
-
-              const SizedBox(height: 10),
-
-              // KE REGISTER
-              TextButton(
-
-                onPressed: () {
-
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => RegisterPage(),
+                    prefixIcon:
+                        const Icon(
+                      Icons.person,
                     ),
-                  );
-                },
 
-                child: const Text(
-                  "Belum punya akun? Daftar",
+                    border:
+                        OutlineInputBorder(
+
+                      borderRadius:
+                          BorderRadius.circular(
+                        12,
+                      ),
+                    ),
+
+                    enabledBorder:
+                        OutlineInputBorder(
+
+                      borderRadius:
+                          BorderRadius.circular(
+                        12,
+                      ),
+
+                      borderSide:
+                          const BorderSide(
+                        color: Colors.grey,
+                      ),
+                    ),
+
+                    focusedBorder:
+                        OutlineInputBorder(
+
+                      borderRadius:
+                          BorderRadius.circular(
+                        12,
+                      ),
+
+                      borderSide:
+                          const BorderSide(
+                        color: Colors.blue,
+                        width: 2,
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-            ],
+
+                const SizedBox(height: 18),
+
+                // ================= PASSWORD =================
+                TextField(
+
+                  controller: pass,
+
+                  obscureText:
+                      obscurePassword,
+
+                  decoration:
+                      InputDecoration(
+
+                    labelText: "Password",
+
+                    hintText:
+                        "Masukkan password",
+
+                    prefixIcon:
+                        const Icon(
+                      Icons.lock,
+                    ),
+
+                    suffixIcon:
+                        IconButton(
+
+                      onPressed: () {
+
+                        setState(() {
+
+                          obscurePassword =
+                              !obscurePassword;
+                        });
+                      },
+
+                      icon: Icon(
+
+                        obscurePassword
+
+                            ? Icons.visibility
+
+                            : Icons.visibility_off,
+                      ),
+                    ),
+
+                    border:
+                        OutlineInputBorder(
+
+                      borderRadius:
+                          BorderRadius.circular(
+                        12,
+                      ),
+                    ),
+
+                    enabledBorder:
+                        OutlineInputBorder(
+
+                      borderRadius:
+                          BorderRadius.circular(
+                        12,
+                      ),
+
+                      borderSide:
+                          const BorderSide(
+                        color: Colors.grey,
+                      ),
+                    ),
+
+                    focusedBorder:
+                        OutlineInputBorder(
+
+                      borderRadius:
+                          BorderRadius.circular(
+                        12,
+                      ),
+
+                      borderSide:
+                          const BorderSide(
+                        color: Colors.blue,
+                        width: 2,
+                      ),
+                    ),
+                  ),
+                ),
+
+                // ================= LUPA PASSWORD =================
+                Align(
+
+                  alignment:
+                      Alignment.centerRight,
+
+                  child: TextButton(
+
+                    onPressed: () {
+
+                      Navigator.push(
+
+                        context,
+
+                        MaterialPageRoute(
+
+                          builder: (context) =>
+                              const ForgotPasswordPage(),
+                        ),
+                      );
+                    },
+
+                    child: const Text(
+                      "Lupa Password?",
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 10),
+
+                // ================= LOGIN BUTTON =================
+                SizedBox(
+
+                  height: 55,
+
+                  child: ElevatedButton(
+
+                    style: ElevatedButton.styleFrom(
+
+                      backgroundColor:
+                          Colors.blue,
+
+                      foregroundColor:
+                          Colors.white,
+
+                      shape:
+                          RoundedRectangleBorder(
+
+                        borderRadius:
+                            BorderRadius.circular(
+                          12,
+                        ),
+                      ),
+                    ),
+
+                    onPressed:
+                        isLoading
+                            ? null
+                            : doLogin,
+
+                    child:
+                        isLoading
+
+                            ? const SizedBox(
+
+                                width: 24,
+
+                                height: 24,
+
+                                child:
+                                    CircularProgressIndicator(
+
+                                  color:
+                                      Colors.white,
+
+                                  strokeWidth: 2,
+                                ),
+                              )
+
+                            : const Text(
+
+                                "LOGIN",
+
+                                style: TextStyle(
+
+                                  fontSize: 16,
+
+                                  fontWeight:
+                                      FontWeight.bold,
+                                ),
+                              ),
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                // ================= REGISTER =================
+                Row(
+
+                  mainAxisAlignment:
+                      MainAxisAlignment.center,
+
+                  children: [
+
+                    const Text(
+                      "Belum punya akun?",
+                    ),
+
+                    TextButton(
+
+                      onPressed: () {
+
+                        Navigator.push(
+
+                          context,
+
+                          MaterialPageRoute(
+
+                            builder: (context) =>
+                                RegisterPage(),
+                          ),
+                        );
+                      },
+
+                      child: const Text(
+                        "Daftar",
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

@@ -10,17 +10,30 @@ from flask_mail import Mail, Message
 import random
 import os
 from dotenv import load_dotenv
+from datetime import timedelta
+from flask_jwt_extended import (
+    JWTManager,
+    create_access_token
+)
 
 load_dotenv()
 
 app = Flask(__name__)
 
-# ================= EMAIL CONFIG =================
+# ================= JWT CONFIG =================
+app.config["JWT_SECRET_KEY"] = "SECRET_KEY_KAMU"
+jwt = JWTManager(app)
+
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
-app.config['MAIL_PORT'] = 587
-app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_PORT'] = 465
+app.config['MAIL_USE_TLS'] = False
+app.config['MAIL_USE_SSL'] = True
+
 app.config['MAIL_USERNAME'] = os.getenv("MAIL_USERNAME")
 app.config['MAIL_PASSWORD'] = os.getenv("MAIL_PASSWORD")
+
+app.config['MAIL_DEFAULT_SENDER'] = os.getenv("MAIL_USERNAME")
+
 mail = Mail(app)
 
 # ================= CORS =================
@@ -41,28 +54,53 @@ def home():
     return "API Konseling & Mental Health Aktif 🚀"
 
 
-# ================= LOGIN (SOLUSI A) =================
+# ================= LOGIN =================
 @app.route("/api/login", methods=["POST"])
 def login():
+
     try:
+
         db = get_db()
+
         cur = db.cursor(dictionary=True)
 
         data = request.get_json(silent=True)
+
         if not data:
-            return jsonify({"status": "error", "message": "Data tidak dikirim"}), 400
+
+            return jsonify({
+
+                "status": "error",
+
+                "message": "Data tidak dikirim"
+
+            }), 400
 
         username = data.get("username")
+
         password = data.get("password")
 
         if not username or not password:
-            return jsonify({"status": "error", "message": "Username & password wajib diisi"}), 400
 
-        # Kita ambil username AS nama agar dibaca aman oleh getter Flutter
+            return jsonify({
+
+                "status": "error",
+
+                "message": "Username & password wajib diisi"
+
+            }), 400
+
+        # ================= CEK USER =================
         cur.execute(
             """
-            SELECT id, email, username, password, username AS nama, role 
-            FROM user 
+            SELECT 
+                id,
+                email,
+                username,
+                password,
+                username AS nama,
+                role
+            FROM user
             WHERE username=%s
             """,
             (username,)
@@ -70,86 +108,187 @@ def login():
 
         user = cur.fetchone()
 
-        # ================= CEK HASH PASSWORD =================
-        if user and check_password_hash(user["password"], password):
+        # ================= VALIDASI PASSWORD =================
+        if user and check_password_hash(
+            user["password"],
+            password
+        ):
 
-            # Hapus password sebelum dikirim ke Flutter
+            # ================= BUAT JWT TOKEN =================
+            token = create_access_token(
+
+                identity=str(user["id"])
+            )
+
+            # ================= HAPUS PASSWORD =================
             user.pop("password", None)
 
-            # Kunci sukses: Kita kembalikan key-nya menjadi "data" lagi 
-            # agar dicerna dengan bahagia oleh file login.dart milikmu
+            # ================= RESPONSE =================
             return jsonify({
+
                 "status": "success",
+
                 "message": "Login berhasil",
-                "data": user  
+
+                "token": token,
+
+                "data": user
             })
 
-        return jsonify({"status": "error", "message": "Username atau password salah"}), 401
+        # ================= LOGIN GAGAL =================
+        return jsonify({
+
+            "status": "error",
+
+            "message": "Username atau password salah"
+
+        }), 401
 
     except Exception as e:
+
         print("LOGIN ERROR:", e)
-        return jsonify({"status": "error", "message": "Terjadi kesalahan server"}), 500
-    
+
+        return jsonify({
+
+            "status": "error",
+
+            "message": "Terjadi kesalahan server"
+
+        }), 500
+
 # ================= REGISTER =================
 @app.route("/api/register", methods=["POST"])
 def register():
-    try:
-        db = get_db()
-        cur = db.cursor()
 
-        data = request.get_json(silent=True)
+    try:
+
+        data = request.get_json(
+            silent=True
+        )
+
         if not data:
-            return jsonify({"status": "error", "message": "Data kosong"}), 400
+
+            return jsonify({
+
+                "status": "error",
+
+                "message": "Data kosong"
+            }), 400
 
         email = data.get("email")
+
         username = data.get("username")
+
         password = data.get("password")
 
-        if not email or not username or not password:
-            return jsonify({"status": "error", "message": "Semua field wajib diisi"}), 400
+        # ================= VALIDASI =================
+        if (
+            not email or
+            not username or
+            not password
+        ):
 
-        # Cek username
-        cur.execute("SELECT id FROM user WHERE username=%s", (username,))
-        if cur.fetchone():
-            return jsonify({"status": "error", "message": "Username sudah digunakan"}), 400
+            return jsonify({
 
-        # Cek email
-        cur.execute("SELECT id FROM user WHERE email=%s", (email,))
-        if cur.fetchone():
-            return jsonify({"status": "error", "message": "Email sudah digunakan"}), 400
+                "status": "error",
 
-        # Insert user
-        hashed_password = generate_password_hash(password)
+                "message": "Semua field wajib diisi"
+            }), 400
+
+        db = get_db()
+
+        cur = db.cursor(
+            dictionary=True
+        )
+
+        # ================= CEK EMAIL =================
         cur.execute(
             """
-            INSERT INTO user (email, username, password, role) 
-            VALUES (%s, %s, %s, 'user')
+            SELECT *
+            FROM user
+            WHERE email=%s
             """,
-            (email, username, hashed_password)
+            (email,)
         )
+
+        cek_email = cur.fetchone()
+
+        if cek_email:
+
+            return jsonify({
+
+                "status": "error",
+
+                "message": "Email sudah digunakan"
+            }), 400
+
+        # ================= CEK USERNAME =================
+        cur.execute(
+            """
+            SELECT *
+            FROM user
+            WHERE username=%s
+            """,
+            (username,)
+        )
+
+        cek_user = cur.fetchone()
+
+        if cek_user:
+
+            return jsonify({
+
+                "status": "error",
+
+                "message": "Username sudah digunakan"
+            }), 400
+
+        # ================= HASH PASSWORD =================
+        hashed_password = generate_password_hash(
+            password
+        )
+
+        # ================= INSERT USER =================
+        cur.execute(
+            """
+            INSERT INTO user (
+                email,
+                username,
+                password,
+                role
+            )
+            VALUES (%s,%s,%s,%s)
+            """,
+            (
+                email,
+                username,
+                hashed_password,
+                "user"
+            )
+        )
+
         db.commit()
 
-        return jsonify({"status": "success", "message": "Registrasi berhasil"})
+        return jsonify({
+
+            "status": "success",
+
+            "message": "Register berhasil"
+        })
 
     except Exception as e:
-        print("REGISTER ERROR:", e)
-        return jsonify({"status": "error", "message": "Terjadi kesalahan server"}), 500
 
+        print(
+            "REGISTER ERROR:",
+            str(e)
+        )
 
-# ================= GEJALA (FROM DATABASE) =================
-@app.route("/api/gejala", methods=["GET"])
-def gejala():
-    try:
-        db = get_db()
-        cur = db.cursor(dictionary=True)
-        cur.execute("SELECT * FROM gejala")
-        data = cur.fetchall()
+        return jsonify({
 
-        return jsonify({"status": "success", "data": data})
-    except Exception as e:
-        print("GEJALA ERROR:", e)
-        return jsonify({"status": "error", "message": "Gagal mengambil data gejala"}), 500
+            "status": "error",
 
+            "message": "Register gagal"
+        }), 500
 
 # ================= KONSULTASI HYBRID =================
 @app.route("/api/konsultasi", methods=["POST"])
@@ -423,28 +562,32 @@ def artikel():
             "message": "Gagal mengambil artikel mental"
         }), 500
 
-# ================= RUN SERVER =================
-if __name__ == "__main__":
-    app.run(
-        debug=True,
-        host="0.0.0.0",
-        port=5000
-    )
 
-    # ================= KIRIM OTP =================
 @app.route("/api/kirim-otp", methods=["POST"])
 def kirim_otp():
 
     try:
 
-        data = request.get_json()
+        data = request.get_json(silent=True)
+
+        if not data:
+            return jsonify({
+                "status": "error",
+                "message": "Data kosong"
+            }), 400
 
         email = data.get("email")
+
+        if not email:
+            return jsonify({
+                "status": "error",
+                "message": "Email wajib diisi"
+            }), 400
 
         db = get_db()
         cur = db.cursor(dictionary=True)
 
-        # cek email user
+        # ================= CEK USER =================
         cur.execute(
             "SELECT * FROM user WHERE email=%s",
             (email,)
@@ -456,40 +599,120 @@ def kirim_otp():
             return jsonify({
                 "status": "error",
                 "message": "Email tidak ditemukan"
-            })
+            }), 404
 
-        # generate otp
+        # ================= GENERATE OTP =================
         otp = str(random.randint(100000, 999999))
 
-        # hapus otp lama
+        print(f"OTP UNTUK {email}: {otp}")
+
+        # ================= HAPUS OTP LAMA =================
         cur.execute(
             "DELETE FROM otp_reset WHERE email=%s",
             (email,)
         )
 
-        # simpan otp baru
+        # ================= SIMPAN OTP =================
         cur.execute(
-            "INSERT INTO otp_reset (email, kode_otp) VALUES (%s,%s)",
+            """
+            INSERT INTO otp_reset (email, kode_otp)
+            VALUES (%s,%s)
+            """,
             (email, otp)
         )
 
         db.commit()
 
-        # kirim email
+        # ================= EMAIL =================
         msg = Message(
-            "Kode OTP Reset Password",
+            subject="Kode OTP Reset Password",
+            sender=("Yomans Konseling", app.config['MAIL_USERNAME']),
             recipients=[email]
         )
 
+        # ================= TEXT VERSION =================
         msg.body = f"""
-Kode OTP reset password Anda:
+Halo {user['username']},
+
+Kode OTP reset password Anda adalah:
 
 {otp}
 
 Jangan berikan kode ini kepada siapa pun.
+
+Yomans Konseling
 """
 
+        # ================= HTML VERSION =================
+        msg.html = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {{
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            padding: 20px;
+        }}
+
+        .container {{
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            max-width: 500px;
+            margin: auto;
+        }}
+
+        .otp {{
+            font-size: 36px;
+            font-weight: bold;
+            color: #2E86DE;
+            text-align: center;
+            margin: 20px 0;
+        }}
+
+        .footer {{
+            margin-top: 30px;
+            font-size: 12px;
+            color: gray;
+            text-align: center;
+        }}
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h2>Kode OTP Reset Password</h2>
+
+<p>Halo <b>{user['username']}</b>,</p>
+
+<p>Kode OTP reset password Anda adalah:</p>
+
+<div class="otp">
+    {otp}
+</div>
+
+<p>
+Jangan berikan kode ini kepada siapa pun demi keamanan akun Anda.
+</p>
+
+<div class="footer">
+Yomans Konseling App
+</div>
+
+</div>
+
+</body>
+</html>
+"""
+
+        print("MULAI KIRIM EMAIL")
+
         mail.send(msg)
+
+        print("EMAIL BERHASIL DIKIRIM")
 
         return jsonify({
             "status": "success",
@@ -498,35 +721,75 @@ Jangan berikan kode ini kepada siapa pun.
 
     except Exception as e:
 
-        print(e)
+        print("OTP ERROR:", str(e))
 
         return jsonify({
             "status": "error",
-            "message": "Gagal mengirim OTP"
-        })
-    
-    # ================= RESET PASSWORD =================
+            "message": str(e)
+        }), 500
+
+
+# ================= RESET PASSWORD =================
 @app.route("/api/reset-password", methods=["POST"])
 def reset_password():
 
     try:
 
-        data = request.get_json()
+        # ================= AMBIL DATA =================
+        data = request.get_json(
+            silent=True
+        )
+
+        if not data:
+
+            return jsonify({
+
+                "status": "error",
+
+                "message": "Data kosong"
+            }), 400
 
         email = data.get("email")
+
         otp = data.get("otp")
-        password_baru = data.get("password")
 
+        password_baru = data.get(
+            "password"
+        )
+
+        # ================= VALIDASI =================
+        if (
+            not email or
+            not otp or
+            not password_baru
+        ):
+
+            return jsonify({
+
+                "status": "error",
+
+                "message": "Data tidak lengkap"
+            }), 400
+
+        # ================= DB =================
         db = get_db()
-        cur = db.cursor(dictionary=True)
 
-        # cek otp
+        cur = db.cursor(
+            dictionary=True
+        )
+
+        # ================= CEK OTP =================
         cur.execute(
             """
-            SELECT * FROM otp_reset
-            WHERE email=%s AND kode_otp=%s
+            SELECT *
+            FROM otp_reset
+            WHERE email=%s
+            AND kode_otp=%s
             """,
-            (email, otp)
+            (
+                email,
+                otp
+            )
         )
 
         cek = cur.fetchone()
@@ -534,38 +797,69 @@ def reset_password():
         if not cek:
 
             return jsonify({
-                "status": "error",
-                "message": "OTP salah"
-            })
 
-        # update password
+                "status": "error",
+
+                "message": "OTP salah"
+            }), 400
+
+        # ================= HASH PASSWORD =================
+        hashed_password = (
+            generate_password_hash(
+                password_baru
+            )
+        )
+
+        # ================= UPDATE PASSWORD =================
         cur.execute(
             """
             UPDATE user
             SET password=%s
             WHERE email=%s
             """,
-            (password_baru, email)
+            (
+                hashed_password,
+                email
+            )
         )
 
-        # hapus otp
+        # ================= HAPUS OTP =================
         cur.execute(
-            "DELETE FROM otp_reset WHERE email=%s",
+            """
+            DELETE FROM otp_reset
+            WHERE email=%s
+            """,
             (email,)
         )
 
         db.commit()
 
         return jsonify({
+
             "status": "success",
-            "message": "Password berhasil direset"
+
+            "message":
+                "Password berhasil direset"
         })
 
     except Exception as e:
 
-        print(e)
+        print(
+            "RESET PASSWORD ERROR:",
+            str(e)
+        )
 
         return jsonify({
+
             "status": "error",
-            "message": "Reset password gagal"
-        })
+
+            "message":
+                "Reset password gagal"
+        }), 500
+    # ================= RUN SERVER =================
+if __name__ == "__main__":
+    app.run(
+        debug=True,
+        host="0.0.0.0",
+        port=5000
+    )
