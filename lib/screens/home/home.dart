@@ -9,8 +9,7 @@ import '../konsultasi/konsultasi.dart';
 import '../berita/informasi.dart';
 import '../dokter/dokter.dart';
 import '../admin/dashboard.dart';
-// Impor halaman booking kamu di sini. Contoh:
-// import '../booking/booking_menu_page.dart'; 
+import 'package:yomans_konseling/screens/history_boking/history_boking.dart';
 import 'package:yomans_konseling/screens/halaman_akun/profile_screen.dart'; 
 
 class HomePage extends StatefulWidget {
@@ -225,32 +224,73 @@ class _HomePageState extends State<HomePage> {
       ),
 
       // ================= NAVIGATION BAR BAWAH =================
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: const Color(0xFF2E6A3F), 
-        unselectedItemColor: Colors.grey,
-        showUnselectedLabels: true,
-        onTap: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-          if (index == 1) {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => Informasi()));
-          } else if (index == 2) {
-            // Sesuai kode awalmu
-            Navigator.push(context, MaterialPageRoute(builder: (_) => HomePage())); 
-          } else if (index == 3) {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileScreen()));
-          }
-        },
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: "Beranda"),
-          BottomNavigationBarItem(icon: Icon(Icons.book_outlined), label: "Informasi"),
-          BottomNavigationBarItem(icon: Icon(Icons.receipt_long_rounded), label: "Riwayat"),
-          BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: "Profile"),
-        ],
-      ),
+     bottomNavigationBar: BottomNavigationBar(
+  currentIndex: _currentIndex,
+  type: BottomNavigationBarType.fixed,
+  selectedItemColor: const Color(0xFF2E6A3F),
+  unselectedItemColor: Colors.grey,
+  showUnselectedLabels: true,
+
+  onTap: (index) {
+
+    setState(() {
+      _currentIndex = index;
+    });
+
+    if (index == 1) {
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => Informasi(),
+        ),
+      );
+
+    } else if (index == 2) {
+
+      // NAVIGASI KE HISTORY BOOKING
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const HistoryBookingPage(),
+        ),
+      );
+
+    } else if (index == 3) {
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) =>
+              const ProfileScreen(),
+        ),
+      );
+    }
+  },
+
+  items: const [
+
+    BottomNavigationBarItem(
+      icon: Icon(Icons.home_outlined),
+      label: "Beranda",
+    ),
+
+    BottomNavigationBarItem(
+      icon: Icon(Icons.book_outlined),
+      label: "Informasi",
+    ),
+
+    BottomNavigationBarItem(
+      icon: Icon(Icons.shopping_cart_outlined),
+      label: "Pesanan",
+    ),
+
+    BottomNavigationBarItem(
+      icon: Icon(Icons.person_outline),
+      label: "Profile",
+    ),
+  ],
+),
     );
   }
 
