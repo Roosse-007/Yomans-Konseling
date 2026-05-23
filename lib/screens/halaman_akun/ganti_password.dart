@@ -8,17 +8,19 @@ class ChangePasswordScreen extends StatefulWidget {
 }
 
 class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
-  static const Color primaryTeal = Color(0xFF318F95);
+  // --- TEMA WARNA SESUAI GAMBAR YOMAN KONSELING ---
+  static const Color primaryGreen = Color(0xFF006622); // Hijau gelap khas Yoman
+  static const Color inputBg = Color(0xFFF5F6F8);      // Abu-abu muda dasar input
 
   final _formKey = GlobalKey<FormState>();
   final _oldPasswordController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
-  // Boolean untuk fitur sembunyi/tampil password (ikon mata)
   bool _obscureOld = true;
   bool _obscureNew = true;
   bool _obscureConfirm = true;
+  bool _isSubmitting = false;
 
   @override
   void dispose() {
@@ -28,6 +30,31 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     super.dispose();
   }
 
+  Future<void> _changePassword() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    // Simulasi proses pengiriman data ke server
+    await Future.delayed(const Duration(seconds: 1));
+
+    setState(() {
+      _isSubmitting = false;
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Password Berhasil Diperbarui'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      Navigator.pop(context);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -35,103 +62,139 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        centerTitle: true,
-        leading: Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: InkWell(
-            onTap: () => Navigator.pop(context),
-            child: Container(
-              decoration: BoxDecoration(
-                color: primaryTeal,
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: const Icon(Icons.chevron_left, color: Colors.white, size: 20),
-            ),
-          ),
-        ),
-        title: const Text(
-          'Change Password',
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 20),
+        // Tombol Back tanda panah kiri minimalis berwarna hitam
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black, size: 28),
+          onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: SafeArea(
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16),
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: SafeArea(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // --- JUDUL HALAMAN ---
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 24.0),
+                  child: Text(
+                    'Ubah Password',
+                    style: TextStyle(
+                      color: primaryGreen,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 28,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // --- CURRENT PASSWORD ---
+                        _buildPasswordField(
+                          label: 'Current Password',
+                          hintText: 'masukkan password lama',
+                          controller: _oldPasswordController,
+                          obscureText: _obscureOld,
+                          onToggle: () => setState(() => _obscureOld = !_obscureOld),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Masukkan password saat ini';
+                            }
+                            return null;
+                          },
+                        ),
+
+                        // --- NEW PASSWORD ---
+                        _buildPasswordField(
+                          label: 'New Password',
+                          hintText: 'masukkan password baru',
+                          controller: _newPasswordController,
+                          obscureText: _obscureNew,
+                          onToggle: () => setState(() => _obscureNew = !_obscureNew),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Masukkan password baru';
+                            }
+                            if (value.trim().length < 6) {
+                              return 'Password minimal 6 karakter';
+                            }
+                            return null;
+                          },
+                        ),
+
+                        // --- CONFIRM NEW PASSWORD ---
+                        _buildPasswordField(
+                          label: 'Confirm New Password',
+                          hintText: 'konfirmasi password baru',
+                          controller: _confirmPasswordController,
+                          obscureText: _obscureConfirm,
+                          onToggle: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Konfirmasi password tidak boleh kosong';
+                            }
+                            if (value != _newPasswordController.text) {
+                              return 'Konfirmasi password tidak cocok';
+                            }
+                            return null;
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // --- TOMBOL SAVE & FOOTER DI PALING BAWAH ---
+                Padding(
+                  padding: const EdgeInsets.all(24.0),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Input Password Lama
-                      _buildPasswordField(
-                        label: 'Current Password',
-                        controller: _oldPasswordController,
-                        obscureText: _obscureOld,
-                        onToggle: () => setState(() => _obscureOld = !_obscureOld),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) return 'Masukkan password saat ini';
-                          return null;
-                        },
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton(
+                          onPressed: _isSubmitting ? null : _changePassword,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryGreen,
+                            foregroundColor: Colors.white,
+                            elevation: 2,
+                            shape: const StadiumBorder(), // Berbentuk kapsul/elips bulat penuh sesuai tombol Login
+                          ),
+                          child: _isSubmitting
+                              ? const CircularProgressIndicator(color: Colors.white)
+                              : const Text(
+                                  'Save',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                        ),
                       ),
-                      // Input Password Baru
-                      _buildPasswordField(
-                        label: 'New Password',
-                        controller: _newPasswordController,
-                        obscureText: _obscureNew,
-                        onToggle: () => setState(() => _obscureNew = !_obscureNew),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) return 'Masukkan password baru';
-                          if (value.length < 6) return 'Password minimal 6 karakter';
-                          return null;
-                        },
-                      ),
-                      // Input Konfirmasi Password Baru
-                      _buildPasswordField(
-                        label: 'Confirm New Password',
-                        controller: _confirmPasswordController,
-                        obscureText: _obscureConfirm,
-                        onToggle: () => setState(() => _obscureConfirm = !_obscureConfirm),
-                        validator: (value) {
-                          if (value != _newPasswordController.text) return 'Konfirmasi password tidak cocok';
-                          return null;
-                        },
+                      const SizedBox(height: 24),
+                      // Teks persetujuan layanan di bawah tombol sesuai gambar mockup
+                      Center(
+                        child: Text(
+                          'Dengan menggunakan layanan Yoman Konseling kamu menyetujui kebijakan privasi dari layanan kami',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.black.withOpacity(0.7),
+                            fontSize: 12,
+                          ),
+                        ),
                       ),
                     ],
                   ),
                 ),
-              ),
-              // Tombol Save Berada di paling bawah
-              Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      if (_formKey.currentState!.validate()) {
-                        // Jika validasi sukses
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Password Berhasil Diperbarui')),
-                        );
-                        Navigator.pop(context);
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryTeal,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    child: const Text(
-                      'Save',
-                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -140,6 +203,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
 
   Widget _buildPasswordField({
     required String label,
+    required String hintText,
     required TextEditingController controller,
     required bool obscureText,
     required VoidCallback onToggle,
@@ -150,24 +214,59 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black)),
+          // Label teks berwarna hijau gelap tebal
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+              color: primaryGreen,
+            ),
+          ),
           const SizedBox(height: 8),
-          TextFormField(
-            controller: controller,
-            obscureText: obscureText,
-            validator: validator,
-            style: const TextStyle(fontSize: 14, color: Colors.black),
-            decoration: InputDecoration(
-              fillColor: const Color(0xFFF5F6F8),
-              filled: true,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              suffixIcon: IconButton(
-                icon: Icon(obscureText ? Icons.visibility_off : Icons.visibility, color: Colors.black54, size: 20),
-                onPressed: onToggle,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
-                borderSide: BorderSide.none,
+          // Penambahan kontainer dekoratif untuk efek shadow soft timbul (soft elevation)
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.06),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: TextFormField(
+              controller: controller,
+              obscureText: obscureText,
+              validator: validator,
+              style: const TextStyle(fontSize: 14, color: Colors.black),
+              decoration: InputDecoration(
+                fillColor: inputBg,
+                filled: true,
+                hintText: hintText,
+                hintStyle: const TextStyle(color: Colors.black38, fontSize: 13),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                    color: primaryGreen, // Warna ikon mata disesuaikan menjadi hijau
+                    size: 22,
+                  ),
+                  onPressed: onToggle,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide.none,
+                ),
+                errorBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: Colors.red, width: 1),
+                ),
+                focusedErrorBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: Colors.red, width: 1),
+                ),
               ),
             ),
           ),

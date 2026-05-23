@@ -1,12 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:yomans_konseling/screens/halaman_akun/profile_screen.dart';
 import 'package:yomans_konseling/screens/home/home.dart';
 import 'detail_artikel.dart';
-// Catatan: Pastikan Anda mengimpor halaman Beranda, EdukasiPage, dan ProfilePage Anda di sini jika diperlukan
-//import '../home/home.dart';
-// import 'edukasi.dart';
-// import 'profile.dart';
 
 class Informasi extends StatefulWidget {
   @override
@@ -63,6 +60,15 @@ class _InformasiState extends State<Informasi> {
         backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
+        // ================= TOMBOL BACK IOS (DITAMBAHKAN) =================
+        leading: IconButton(
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: Colors.black,
+            size: 22, // Ukuran disesuaikan agar proporsional di AppBar
+          ),
+          onPressed: () => Navigator.pop(context),
+        ),
         title: const Text(
           "Informasi Tentang Kesehatan Mental",
           style: TextStyle(
@@ -190,7 +196,6 @@ class _InformasiState extends State<Informasi> {
                     );
                   },
                 ),
-      // ================= NAVIGATION BAR BAWAH (SUDAH DIPERBAIKI) =================
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         type: BottomNavigationBarType.fixed,
@@ -198,32 +203,29 @@ class _InformasiState extends State<Informasi> {
         unselectedItemColor: Colors.grey,
         showUnselectedLabels: true,
         onTap: (index) {
-          if (index == _currentIndex) return; // Menghemat memori jika menekan tab yang sama
+          if (index == _currentIndex) return; 
 
           setState(() {
             _currentIndex = index;
           });
 
           if (index == 0) {
-            // Berpindah ke Home/Beranda dengan aman tanpa menumpuk stack halaman
             Navigator.pushReplacement(
               context, 
-              MaterialPageRoute(builder: (_) => HomePage()), // Sesuaikan jika nama class-nya HomePage
+              MaterialPageRoute(builder: (_) => HomePage()), 
             );
           } else if (index == 1) {
-            // Sudah berada di halaman Informasi, diam di tempat
+            // Sudah berada di halaman Informasi
           } else if (index == 2) {
-            // Berpindah ke halaman Pesanan
             // Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => PesananPage())); 
           } else if (index == 3) {
-            // Berpindah ke halaman Profile
-            // Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => ProfilePage())); 
+             Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => ProfileScreen())); 
           }
         },
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: "Beranda"),
           BottomNavigationBarItem(icon: Icon(Icons.book_outlined), label: "Informasi"),
-          BottomNavigationBarItem(icon: Icon(Icons.shopping_cart_outlined), label: "Pesanan"),
+          BottomNavigationBarItem(icon: Icon(Icons.receipt_long_rounded), label: "Riwayat"),
           BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: "Profile"),
         ],
       ),

@@ -1,24 +1,51 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:yomans_konseling/providers/dokter_provider.dart'; // Jangan lupa import provider
+// import 'path_ke_provider_kamu/dokter_provider.dart'; 
 
-class BookingMenuPage extends StatelessWidget {
-  const BookingMenuPage({super.key});
+class PsikologPage extends StatelessWidget {
+  final int dokterId; // Terima ID dokter yang dipilih dari halaman sebelumnya
+
+  const PsikologPage({super.key, required this.dokterId});
 
   @override
   Widget build(BuildContext context) {
+    // Ambil data provider
+    final dokterProvider = Provider.of<DokterProvider>(context);
+    
+    // Cari data dokter yang spesifik berdasarkan ID yang dikirim
+    final dokter = dokterProvider.listDokter.firstWhere(
+      (d) => d['id'] == dokterId,
+      orElse: () => {},
+    );
+
+    // Proteksi jika data dokter tidak ditemukan
+    if (dokter.isEmpty) {
+      return const Scaffold(
+        body: Center(child: Text("Data dokter tidak ditemukan")),
+      );
+    }
+
+    // Ambil data dari map agar kode di bawah lebih bersih
+    final String namaDokter = dokter['nama'] ?? '';
+    final List<String> tags = List<String>.from(dokter['tags'] ?? []);
+    final String imageUrl = dokter['image_url'] ?? '';
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black, size: 28),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black, size: 25),
           onPressed: () {
-            Navigator.pop(context); // Atau sesuaikan dengan navigasi kamu
+            Navigator.pop(context);
           },
         ),
-        title: const Text(
-          'Psikolog Ira',
-          style: TextStyle(
+        // DINAMIS: Nama di AppBar mengikuti dokter yang dipilih
+        title: Text(
+          namaDokter.split(' ').first, // Mengambil kata pertama saja (misal: "Ira")
+          style: const TextStyle(
             color: Colors.black,
             fontWeight: FontWeight.bold,
             fontSize: 18,
@@ -29,20 +56,20 @@ class BookingMenuPage extends StatelessWidget {
       body: Stack(
         children: [
           SingleChildScrollView(
-            padding: const EdgeInsets.only(bottom: 100), // Agar konten tidak tertutup tombol bawah
+            padding: const EdgeInsets.only(bottom: 100),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 10),
                 
-                // --- Header Foto & Background Hijau Muda ---
+                // --- Header Foto & Background ---
                 Center(
                   child: Container(
                     width: double.infinity,
                     margin: const EdgeInsets.symmetric(horizontal: 16),
                     height: 180,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFE8F5E9).withOpacity(0.5), // Background hijau muda lembut
+                      color: const Color(0xFFE8F5E9).withOpacity(0.5),
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Center(
@@ -51,14 +78,13 @@ class BookingMenuPage extends StatelessWidget {
                         height: 150,
                         decoration: BoxDecoration(
                           border: Border.all(
-                            color: const Color(0xFF1B5E20), // Border hijau tua
+                            color: const Color(0xFF1B5E20),
                             width: 4,
                           ),
                           borderRadius: BorderRadius.circular(12),
-                          image: const DecorationImage(
-                            image: NetworkImage(
-                              'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=400', // Foto dummy psikolog
-                            ),
+                          image: DecorationImage(
+                            // DINAMIS: Menggunakan AssetImage karena datamu berupa path lokal
+                            image: AssetImage(imageUrl),
                             fit: BoxFit.cover,
                           ),
                         ),
@@ -68,11 +94,11 @@ class BookingMenuPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
 
-                // --- Nama & Gelar Psikolog ---
-                const Center(
+                // --- Nama & Gelar Dokter ---
+                Center(
                   child: Text(
-                    'Ira Febriana M.Psi., Psikolog',
-                    style: TextStyle(
+                    namaDokter, // DINAMIS
+                    style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                       color: Colors.black,
@@ -82,15 +108,14 @@ class BookingMenuPage extends StatelessWidget {
                 const SizedBox(height: 10),
 
                 // --- Tag Keahlian / Kategori ---
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _buildTag('Keluarga'),
-                    const SizedBox(width: 8),
-                    _buildTag('Kecemasan'),
-                    const SizedBox(width: 8),
-                    _buildTag('Percintaan'),
-                  ],
+                // DINAMIS: Menampilkan berapapun jumlah tag dari Provider menggunakan Wrap
+                Center(
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.center,
+                    children: tags.map((tag) => _buildTag(tag)).toList(),
+                  ),
                 ),
                 const SizedBox(height: 24),
 
@@ -110,7 +135,7 @@ class BookingMenuPage extends StatelessWidget {
                           const SizedBox(height: 8),
                           Container(
                             height: 3,
-                            color: const Color(0xFF1B5E20), // Garis aktif hijau
+                            color: const Color(0xFF1B5E20),
                           ),
                         ],
                       ),
@@ -127,7 +152,7 @@ class BookingMenuPage extends StatelessWidget {
                           const SizedBox(height: 8),
                           Container(
                             height: 3,
-                            color: Colors.grey[300], // Garis tidak aktif grey
+                            color: Colors.grey[300],
                           ),
                         ],
                       ),
@@ -136,7 +161,7 @@ class BookingMenuPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 20),
 
-                // --- Bagian Ulasan Psikolog ---
+                // --- Bagian Ulasan ---
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
                   child: Row(
@@ -163,7 +188,6 @@ class BookingMenuPage extends StatelessWidget {
                   ),
                 ),
 
-                // --- List Ulasan ---
                 _buildReviewItem(
                   initial: 'U',
                   name: 'Udin Jabrix',
@@ -182,7 +206,7 @@ class BookingMenuPage extends StatelessWidget {
             ),
           ),
 
-          // --- Tombol Konseling (Fixed di Bawah Layar) ---
+          // --- Tombol Konseling ---
           Positioned(
             left: 16,
             right: 16,
@@ -195,7 +219,7 @@ class BookingMenuPage extends StatelessWidget {
                   // Aksi tombol konseling
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF006622), // Hijau tua pekat
+                  backgroundColor: const Color(0xFF006622),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(30),
                   ),
@@ -217,7 +241,6 @@ class BookingMenuPage extends StatelessWidget {
     );
   }
 
-  // Widget Helper: Tag / Badge Kategori
   Widget _buildTag(String label) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -236,7 +259,6 @@ class BookingMenuPage extends StatelessWidget {
     );
   }
 
-  // Widget Helper: Item Komentar / Ulasan
   Widget _buildReviewItem({
     required String initial,
     required String name,
@@ -265,8 +287,7 @@ class BookingMenuPage extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
-                  // BENAR
-crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       name,
@@ -300,7 +321,7 @@ crossAxisAlignment: CrossAxisAlignment.start,
           ),
           const SizedBox(height: 12),
           Text(
-            'Ngobrol sama Kak Ira itu nyaman banget, serasa cerita ke temen tapi tetap dapat solusi yang profesional. Bener-bener ngebantu aku memahami diri sendiri lebih baik.',
+            'Ngobrol nyaman banget, serasa cerita ke temen tapi tetap dapat solusi yang profesional.',
             style: TextStyle(
               color: Colors.grey[600],
               fontSize: 12,

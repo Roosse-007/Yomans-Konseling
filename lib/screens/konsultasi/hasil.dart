@@ -74,7 +74,7 @@ class HasilPage extends StatelessWidget {
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.black, size: 28),
+                    icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black, size: 25),
                     onPressed: () => Navigator.pop(context),
                   ),
                   const SizedBox(width: 16),

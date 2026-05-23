@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import 'providers/auth_provider.dart';
 import 'providers/dokter_provider.dart';
+import 'providers/user_provider.dart'; //ni baru
 
 import 'screens/auth/login.dart';
 import 'screens/home/home.dart';
@@ -30,6 +31,10 @@ class MyApp extends StatelessWidget {
 
         ChangeNotifierProvider(
           create: (_) => DokterProvider(),
+        ),
+
+        ChangeNotifierProvider(
+          create: (_) => UserProvider(),
         ),
 
       ],

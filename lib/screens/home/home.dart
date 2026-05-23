@@ -1,28 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:yomans_konseling/screens/dokter/PilihPsikologPage.dart';
 
 import '../../providers/auth_provider.dart';
-// Ambil path DokterProvider sesuai struktur folder projekmu, contoh:
 import '../../providers/dokter_provider.dart'; 
 
 import '../konsultasi/konsultasi.dart';
-//import '../edukasi/edukasi.dart';
 import '../berita/informasi.dart';
 import '../dokter/dokter.dart';
 import '../admin/dashboard.dart';
+// Impor halaman booking kamu di sini. Contoh:
+// import '../booking/booking_menu_page.dart'; 
 import 'package:yomans_konseling/screens/halaman_akun/profile_screen.dart'; 
-// Sesuaikan dengan letak path struktur folder proyekmu
 
 class HomePage extends StatefulWidget {
   @override
   _HomePageState createState() => _HomePageState();
 }
 
-bool _isPressedOffline = false;
-  bool _isPressedOnline = false;
-  
 class _HomePageState extends State<HomePage> {
   int _currentIndex = 0; // Mengatur Navigasi Bawah Aktif
+  bool _isPressedOffline = false;
+  bool _isPressedOnline = false;
 
   @override
   Widget build(BuildContext context) {
@@ -47,7 +46,7 @@ class _HomePageState extends State<HomePage> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    "Hallo,$namaTampilan",
+                    "Hallo, $namaTampilan",
                     style: const TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -66,39 +65,31 @@ class _HomePageState extends State<HomePage> {
               ),
               const SizedBox(height: 25),
 
-             // ================= MENU UTAMA: OFFLINE & ONLINE KONSELING =================
+              // ================= MENU UTAMA: OFFLINE & ONLINE KONSELING =================
               Row(
                 children: [
                   Expanded(
                     child: _buildMenuUtamaCard(
                       imagePath: 'lib/assets/offline.png',
                       title: "Offline\nkonseling",
-
-                      // STATUS EFEK KLIK
                       isPressed: _isPressedOffline,
-
-                      // SAAT DITEKAN
                       onTapDown: () {
                         setState(() {
                           _isPressedOffline = true;
                         });
                       },
-
-                      // SAAT DILEPAS
                       onTapUp: () {
                         setState(() {
                           _isPressedOffline = false;
                         });
-
+                        // Secara default mengarah ke ID dokter 1 (Misal Ira) jika klik menu utama
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => BookingMenuPage(),
+                            builder: (_) => const PilihPsikologPage(),
                           ),
                         );
                       },
-
-                      // JIKA BATAL KLIK
                       onTapCancel: () {
                         setState(() {
                           _isPressedOffline = false;
@@ -106,30 +97,21 @@ class _HomePageState extends State<HomePage> {
                       },
                     ),
                   ),
-
                   const SizedBox(width: 15),
-
                   Expanded(
                     child: _buildMenuUtamaCard(
                       imagePath: 'lib/assets/online.png',
                       title: "Online\nkonseling",
-
-                      // STATUS EFEK KLIK
                       isPressed: _isPressedOnline,
-
-                      // SAAT DITEKAN
                       onTapDown: () {
                         setState(() {
                           _isPressedOnline = true;
                         });
                       },
-
-                      // SAAT DILEPAS
                       onTapUp: () {
                         setState(() {
                           _isPressedOnline = false;
                         });
-
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -137,8 +119,6 @@ class _HomePageState extends State<HomePage> {
                           ),
                         );
                       },
-
-                      // JIKA BATAL KLIK
                       onTapCancel: () {
                         setState(() {
                           _isPressedOnline = false;
@@ -161,15 +141,9 @@ class _HomePageState extends State<HomePage> {
               ),
               const SizedBox(height: 15),
 
-              // ================= HORIZONTAL SLIDER DOKTER (DINAMIS DARI ADMIN / API) =================
-              /* Catatan Penting: 
-                Pastikan kamu sudah membuat 'DokterProvider' dan mendaftarkannya di main.dart.
-                Jika belum membuat DokterProvider dan ingin tes UI beranda dulu agar tidak eror,
-                kamu bisa mengubah blok ini kembali ke ListView manual sementara waktu.
-              */
+              // ================= HORIZONTAL SLIDER DOKTER =================
               Consumer<DokterProvider>(
                 builder: (context, dokterProv, child) {
-                  // Jika data dokter masih kosong di provider, panggil API untuk fetch data
                   if (dokterProv.listDokter.isEmpty) {
                     dokterProv.fetchDokter();
                     return const SizedBox(
@@ -187,11 +161,11 @@ class _HomePageState extends State<HomePage> {
                       itemCount: paraDokter.length,
                       itemBuilder: (context, index) {
                         final dokter = paraDokter[index];
-                        
-                        // Mengonversi array tags dari JSON database secara aman
                         List<String> tags = List<String>.from(dokter['tags'] ?? []);
 
                         return _buildDokterCard(
+                          context,
+                          id: dokter['id'] ?? 1,
                           imagePath: dokter['image_url'] ?? 'assets/default_dokter.png', 
                           name: dokter['nama'] ?? 'Nama Dokter',
                           tags: tags,
@@ -203,7 +177,6 @@ class _HomePageState extends State<HomePage> {
                 },
               ),
               
-              // INDIKATOR CAROUSEL (TITIK TIGA)
               const SizedBox(height: 10),
               Center(
                 child: Row(
@@ -252,7 +225,7 @@ class _HomePageState extends State<HomePage> {
       ),
 
       // ================= NAVIGATION BAR BAWAH =================
-     bottomNavigationBar: BottomNavigationBar(
+      bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         type: BottomNavigationBarType.fixed,
         selectedItemColor: const Color(0xFF2E6A3F), 
@@ -265,17 +238,17 @@ class _HomePageState extends State<HomePage> {
           if (index == 1) {
             Navigator.push(context, MaterialPageRoute(builder: (_) => Informasi()));
           } else if (index == 2) {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => HomePage())); // Pastikan ini halaman Pesanan kamu
+            // Sesuai kode awalmu
+            Navigator.push(context, MaterialPageRoute(builder: (_) => HomePage())); 
           } else if (index == 3) {
-            // Ditambahkan untuk navigasi ke halaman Profile
             Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileScreen()));
           }
         },
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: "Beranda"),
           BottomNavigationBarItem(icon: Icon(Icons.book_outlined), label: "Informasi"),
-          BottomNavigationBarItem(icon: Icon(Icons.shopping_cart_outlined), label: "Pesanan"),
-          BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: "Profile"), // index == 3
+          BottomNavigationBarItem(icon: Icon(Icons.receipt_long_rounded), label: "Riwayat"),
+          BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: "Profile"),
         ],
       ),
     );
@@ -283,280 +256,205 @@ class _HomePageState extends State<HomePage> {
 
   // ================= WIDGET BUILDER UNTUK CARD MENU UTAMA =================
   Widget _buildMenuUtamaCard({
-  required String imagePath,
-  required String title,
-  required bool isPressed,
-  required VoidCallback onTapDown,
-  required VoidCallback onTapUp,
-  required VoidCallback onTapCancel,
-}) {
-  return MouseRegion(
-    cursor: SystemMouseCursors.click,
+    required String imagePath,
+    required String title,
+    required bool isPressed,
+    required VoidCallback onTapDown,
+    required VoidCallback onTapUp,
+    required VoidCallback onTapCancel,
+  }) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          splashColor: Colors.green.withOpacity(0.15),
+          highlightColor: Colors.green.withOpacity(0.08),
+          onTapDown: (_) => onTapDown(),
+          onTapUp: (_) => onTapUp(),
+          onTapCancel: onTapCancel,
+          child: AnimatedScale(
+            duration: const Duration(milliseconds: 120),
+            scale: isPressed ? 0.96 : 1.0,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(isPressed ? 0.08 : 0.14),
+                    blurRadius: isPressed ? 6 : 14,
+                    spreadRadius: isPressed ? 1 : 2,
+                    offset: Offset(0, isPressed ? 2 : 6),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  ClipRRect(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                    child: Image.asset(
+                      imagePath,
+                      height: 100,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          height: 100,
+                          color: const Color(0xFFE8F5E9),
+                          child: const Icon(Icons.image, color: Colors.green, size: 40),
+                        );
+                      },
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12.0),
+                    child: Text(
+                      title,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: Color(0xFF1B4326),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
-    child: Material(
-      color: Colors.transparent,
-
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-
-        // WARNA EFEK KLIK
-        splashColor: Colors.green.withOpacity(0.15),
-        highlightColor: Colors.green.withOpacity(0.08),
-
-        onTapDown: (_) => onTapDown(),
-
-        onTapUp: (_) {
-          onTapUp();
-        },
-
-        onTapCancel: onTapCancel,
-
-        child: AnimatedScale(
-          duration: const Duration(milliseconds: 120),
-
-          // EFEK MENGECIL
-          scale: isPressed ? 0.96 : 1.0,
-
+  // ================= WIDGET BUILDER UNTUK CARD SLIDER PSIKOLOG =================
+  Widget _buildDokterCard(
+    BuildContext context, {
+    required int id,
+    required String imagePath,
+    required String name,
+    required List<String> tags,
+    required String time,
+  }) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          splashColor: Colors.green.withOpacity(0.15),
+          highlightColor: Colors.green.withOpacity(0.08),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => PsikologPage(dokterId: id),
+              ),
+            );
+          },
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-
+            duration: const Duration(milliseconds: 200),
+            width: 165,
+            margin: const EdgeInsets.only(right: 15, bottom: 8, top: 4),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
-
-              // BAYANGAN DINAMIS
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(
-                    isPressed ? 0.08 : 0.14,
-                  ),
-
-                  blurRadius: isPressed ? 6 : 14,
-                  spreadRadius: isPressed ? 1 : 2,
-                  offset: Offset(0, isPressed ? 2 : 6),
+                  color: Colors.black.withOpacity(0.10),
+                  blurRadius: 12,
+                  spreadRadius: 2,
+                  offset: const Offset(0, 6),
                 ),
               ],
             ),
-
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-
-              children: [
-                ClipRRect(
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(16),
+            child: Padding(
+              padding: const EdgeInsets.all(10.0),
+              child: Column(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: imagePath.startsWith('http')
+                        ? Image.network(
+                            imagePath,
+                            height: 90,
+                            width: 90,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) => _buildAvatarError(),
+                          )
+                        : Image.asset(
+                            imagePath,
+                            height: 90,
+                            width: 90,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) => _buildAvatarError(),
+                          ),
                   ),
-
-                  child: Image.asset(
-                    imagePath,
-                    height: 100,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-
-                    errorBuilder: (context, error, stackTrace) {
+                  const SizedBox(height: 10),
+                  Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 4,
+                    runSpacing: 4,
+                    alignment: WrapAlignment.center,
+                    children: tags.map((tag) {
                       return Container(
-                        height: 100,
-                        color: const Color(0xFFE8F5E9),
-
-                        child: const Icon(
-                          Icons.image,
-                          color: Colors.green,
-                          size: 40,
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE8F5E9),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          tag,
+                          style: const TextStyle(fontSize: 8, color: Colors.green, fontWeight: FontWeight.bold),
                         ),
                       );
-                    },
+                    }).toList(),
                   ),
-                ),
-
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12.0),
-
-                  child: Text(
-                    title,
-                    textAlign: TextAlign.center,
-
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                      color: Color(0xFF1B4326),
+                  const Spacer(),
+                  const Text(
+                    "Jadwal tercepat",
+                    style: TextStyle(fontSize: 10, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2E6A3F),
+                      borderRadius: BorderRadius.circular(20),
                     ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    ),
-  );
-}
-
-  // ================= WIDGET BUILDER UNTUK CARD SLIDER PSIKOLOG =================
-Widget _buildDokterCard({
-  required String imagePath,
-  required String name,
-  required List<String> tags,
-  required String time,
-}) {
-  return MouseRegion(
-    cursor: SystemMouseCursors.click,
-    child: Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        splashColor: Colors.green.withOpacity(0.15),
-        highlightColor: Colors.green.withOpacity(0.08),
-        onTap: () {
-          debugPrint("$name diklik");
-        },
-
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          width: 165,
-          margin: const EdgeInsets.only(right: 15, bottom: 8, top: 4),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-
-            // BAYANGAN LEBIH MODERN
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.10),
-                blurRadius: 12,
-                spreadRadius: 2,
-                offset: const Offset(0, 6),
+                    child: Text(
+                      time,
+                      style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                    ),
+                  )
+                ],
               ),
-            ],
-          ),
-
-          child: Padding(
-            padding: const EdgeInsets.all(10.0),
-            child: Column(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-
-                  child: imagePath.startsWith('http')
-                      ? Image.network(
-                          imagePath,
-                          height: 90,
-                          width: 90,
-                          fit: BoxFit.cover,
-
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              height: 90,
-                              width: 90,
-                              color: Colors.grey[200],
-                              child: const Icon(
-                                Icons.person,
-                                color: Colors.grey,
-                              ),
-                            );
-                          },
-                        )
-                      : Image.asset(
-                          imagePath,
-                          height: 90,
-                          width: 90,
-                          fit: BoxFit.cover,
-
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              height: 90,
-                              width: 90,
-                              color: Colors.grey[200],
-                              child: const Icon(
-                                Icons.person,
-                                color: Colors.grey,
-                              ),
-                            );
-                          },
-                        ),
-                ),
-
-                const SizedBox(height: 10),
-
-                Text(
-                  name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                  ),
-                ),
-
-                const SizedBox(height: 6),
-
-                Wrap(
-                  spacing: 4,
-                  runSpacing: 4,
-                  alignment: WrapAlignment.center,
-
-                  children: tags.map((tag) {
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE8F5E9),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-
-                      child: Text(
-                        tag,
-                        style: const TextStyle(
-                          fontSize: 8,
-                          color: Colors.green,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-
-                const Spacer(),
-
-                const Text(
-                  "Jadwal tercepat",
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: Colors.grey,
-                  ),
-                ),
-
-                const SizedBox(height: 4),
-
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF2E6A3F),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-
-                  child: Text(
-                    time,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 9,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                )
-              ],
             ),
           ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
+
+  Widget _buildAvatarError() {
+    return Container(
+      height: 90,
+      width: 90,
+      color: Colors.grey[200],
+      child: const Icon(Icons.person, color: Colors.grey),
+    );
+  }
+
   // ================= WIDGET BUILDER BANNER KEUNGGULAN BANNER =================
   Widget _buildKeunggulanCard(String number, String text) {
     return Container(
@@ -577,12 +475,7 @@ Widget _buildDokterCard({
               alignment: Alignment.bottomLeft,
               child: Text(
                 text,
-                style: const TextStyle(
-                  color: Colors.white, 
-                  fontSize: 11, 
-                  fontWeight: FontWeight.w600, 
-                  height: 1.3
-                ),
+                style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600, height: 1.3),
               ),
             ),
           ),
@@ -591,10 +484,7 @@ Widget _buildDokterCard({
             right: 0,
             child: Container(
               padding: const EdgeInsets.all(6),
-              decoration: const BoxDecoration(
-                color: Color(0xFFFFD54F),
-                shape: BoxShape.circle,
-              ),
+              decoration: const BoxDecoration(color: Color(0xFFFFD54F), shape: BoxShape.circle),
               child: Text(
                 number,
                 style: const TextStyle(color: Colors.black, fontSize: 11, fontWeight: FontWeight.bold),
@@ -620,11 +510,7 @@ Widget _buildDokterCard({
         children: [
           const Text(
             "Apa aku butuh\nkonseling",
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF1B4326),
-            ),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1B4326)),
           ),
           ElevatedButton(
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => KonsultasiPage())),
@@ -640,7 +526,6 @@ Widget _buildDokterCard({
     );
   }
 
-  // INDIKATOR BULATAN SLIDER
   Widget _buildDotIndicator({required bool isActive}) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 3),
@@ -653,5 +538,3 @@ Widget _buildDokterCard({
     );
   }
 }
-
-// Dummy class tiruan DokterProvider agar kompilasi awal berjalan aman sebelum dihubungkan ke API asli.

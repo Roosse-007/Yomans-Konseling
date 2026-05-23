@@ -1,15 +1,66 @@
+import 'dart:io'; // Diperlukan untuk membaca berkas gambar lokal di platform mobile
+import 'package:flutter/foundation.dart'; // Diperlukan untuk mendeteksi kIsWeb
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart'; // Import package pengambil gambar
+import 'package:provider/provider.dart';
+import 'package:yomans_konseling/providers/auth_provider.dart';
+import 'package:yomans_konseling/screens/berita/informasi.dart';
 import 'package:yomans_konseling/screens/halaman_akun/edit_profile.dart';
 import 'package:yomans_konseling/screens/halaman_akun/ganti_password.dart';
+import 'package:yomans_konseling/screens/home/home.dart';
+
+// 💡 PASTIKAN PATH IMPORT DI BAWAH INI SUDAH SESUAI DENGAN PROYEKMU
+// import 'package:yomans_konseling/screens/home_page.dart'; 
+// import 'package:yomans_konseling/screens/informasi.dart';
 import 'notification_screen.dart';
 
-
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
-  static const Color primaryTeal = Color(0xFF318F95);
+  // MENGUBAH TEMA WARNA UTAMA MENJADI HIJAU SESUAI HALAMAN BOOKING
+  static const Color primaryGreen = Color(0xFF1B5E20);
 
-  // Fungsi untuk memunculkan Popup Dialog Konfirmasi Sign Out
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  final ImagePicker _picker = ImagePicker();
+  
+  // Set default ke 3 karena halaman ini adalah indeks "Profile"
+  int _currentIndex = 3; 
+
+  // FUNGSI UNTUK MEMILIH GAMBAR YANG MENDUKUNG MOBILE DAN WEB
+  Future<void> _pickImage(AuthProvider authProvider) async {
+    try {
+      final XFile? pickedFile = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 80, // Kompres kualitas gambar agar tidak terlalu berat
+      );
+
+      if (pickedFile != null) {
+        // Ambil data map user lama
+        Map<String, dynamic> updatedData = {
+          ...authProvider.user ?? {},
+        };
+
+        // Simpan path gambar (di web ini akan berupa Blob URL, di mobile berupa local path)
+        updatedData['image_url'] = pickedFile.path;
+
+        // Perbarui data local state & Secure Storage
+        await authProvider.updateUser(updatedData);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Foto profil berhasil diperbarui')),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint("Gagal mengambil gambar: $e");
+    }
+  }
+
   void _showSignOutDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -24,12 +75,17 @@ class ProfileScreen extends StatelessWidget {
               child: const Text('Batal', style: TextStyle(color: Colors.grey)),
             ),
             TextButton(
-              onPressed: () {
+              onPressed: () async {
                 Navigator.pop(context);
-                // Tambahkan logika logout kamu di sini (misal: hapus token/pindah ke hal login)
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Berhasil keluar')),
-                );
+                
+                // --- SINKRONISASI LOGOUT KE AUTHPROVIDER ---
+                await Provider.of<AuthProvider>(context, listen: false).logout();
+                
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Berhasil keluar')),
+                  );
+                }
               },
               child: const Text('Keluar', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
             ),
@@ -39,17 +95,44 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
+  // LOGIKA PINTAR UNTUK MENAMPILKAN GAMBAR (Mencegah crash 'js_allow_interop' di Web)
+  ImageProvider _getProfileImage(String path) {
+    if (path.startsWith('http') || path.startsWith('https')) {
+      return NetworkImage(path);
+    } else if (kIsWeb || path.startsWith('blob:')) {
+      // Di Web, path berupa 'blob:http...' harus dibaca sebagai NetworkImage
+      return NetworkImage(path);
+    } else {
+      // Di Android / iOS asli, baru kita panggil FileImage
+      return FileImage(File(path));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context);
+    
+    final String namaUser = authProvider.nama.isNotEmpty ? authProvider.nama : 'Nama Pengguna';
+    final String peranUser = authProvider.user?['role'] ?? 'Client';
+    final String fotoUser = authProvider.user?['image_url'] ?? 'https://via.placeholder.com/150';
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(
+            Icons.arrow_back_ios_new,
+            color: Colors.black,
+            size: 25,
+          ),
+          onPressed: () => Navigator.pop(context),
+        ),
         title: const Text(
           'Profile',
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 20),
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 18),
         ),
       ),
       body: SingleChildScrollView(
@@ -57,49 +140,58 @@ class ProfileScreen extends StatelessWidget {
         child: Column(
           children: [
             const SizedBox(height: 20),
+            
+            // --- FOTO PROFIL USER (SUDAH DIPERBAIKI) ---
             Center(
               child: Stack(
                 children: [
                   Container(
-                    width: 120,
-                    height: 120,
+                    width: 110,
+                    height: 110,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border: Border.all(color: Colors.grey.shade300, width: 2),
-                      image: const DecorationImage(
-                        image: NetworkImage('https://via.placeholder.com/150'),
+                      border: Border.all(color: Colors.grey.shade200, width: 3),
+                      image: DecorationImage(
+                        image: _getProfileImage(fotoUser), // Menggunakan penangan gambar dinamis aman
                         fit: BoxFit.cover,
                       ),
                     ),
                   ),
-                  const Positioned(
+                  Positioned(
                     bottom: 0,
-                    right: 4,
-                    child: CircleAvatar(
-                      radius: 16,
-                      backgroundColor: primaryTeal,
-                      child: Icon(Icons.edit, size: 16, color: Colors.white),
+                    right: 2,
+                    child: MouseRegion(
+                      cursor: SystemMouseCursors.click, // <-- MERUBAH KURSOR MENJADI TELUNJUK SAAT DIATAS ICON EDIT
+                      child: GestureDetector(
+                        onTap: () => _pickImage(authProvider),
+                        child: const CircleAvatar(
+                          radius: 15,
+                          backgroundColor: ProfileScreen.primaryGreen,
+                          child: Icon(Icons.edit, size: 14, color: Colors.white),
+                        ),
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 16),
-            const Text(
-              'Albert Florest',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1A1A1A)),
+            
+            Text(
+              namaUser,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1A1A1A)),
             ),
             const SizedBox(height: 4),
             Text(
-              'Buyer',
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+              peranUser,
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
             ),
             const SizedBox(height: 32),
             
-            // MENU NAVIGASI (Shipping Address Sudah Dihapus)
+            // --- MENU NAVIGASI ---
             ProfileMenuItem(
               icon: Icons.person_outline,
-              title: 'Edit Profile',
+              title: 'Edit Profil',
               onTap: () {
                 Navigator.push(
                   context,
@@ -109,7 +201,7 @@ class ProfileScreen extends StatelessWidget {
             ),
             ProfileMenuItem(
               icon: Icons.notifications_none_outlined,
-              title: 'Notification',
+              title: 'Notifikasi',
               onTap: () {
                 Navigator.push(
                   context,
@@ -119,7 +211,7 @@ class ProfileScreen extends StatelessWidget {
             ),
             ProfileMenuItem(
               icon: Icons.lock_open_outlined,
-              title: 'Change Password',
+              title: 'Ganti Password',
               onTap: () {
                 Navigator.push(
                   context,
@@ -128,32 +220,66 @@ class ProfileScreen extends StatelessWidget {
               },
             ),
             
-            const SizedBox(height: 40),
-            // TOMBOL SIGN OUT
+            const SizedBox(height: 32),
+            
+            // --- TOMBOL SIGN OUT ---
             SizedBox(
               width: double.infinity,
-              height: 48,
+              height: 46,
               child: ElevatedButton.icon(
                 onPressed: () => _showSignOutDialog(context),
-                icon: const Icon(Icons.logout, color: Colors.white, size: 18),
+                icon: const Icon(Icons.logout, color: Colors.white, size: 16),
                 label: const Text(
-                  'Sign Out',
-                  style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                  'Logout',
+                  style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: primaryTeal,
+                  backgroundColor: ProfileScreen.primaryGreen,
                   elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                 ),
               ),
             ),
           ],
         ),
       ),
+      
+      // ================= NAVIGATION BAR BAWAH =================
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        type: BottomNavigationBarType.fixed,
+        selectedItemColor: const Color(0xFF2E6A3F), 
+        unselectedItemColor: Colors.grey,
+        showUnselectedLabels: true,
+        onTap: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+          if (index == 0) {
+            // Tambahkan navigasi balik ke Beranda jika diperlukan
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => HomePage()));
+          } else if (index == 1) {
+            // Hindari error pemanggilan dengan memastikan widget Informasi() sudah diimport
+            Navigator.push(context, MaterialPageRoute(builder: (_) => Informasi()));
+          } else if (index == 2) {
+            // Hindari error pemanggilan dengan memastikan widget HomePage() sudah diimport
+            // Navigator.push(context, MaterialPageRoute(builder: (_) => HomePage())); 
+          } else if (index == 3) {
+            // Karena ini sudah di halaman ProfileScreen, tidak perlu push kembali ke diri sendiri
+          }
+        },
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: "Beranda"),
+          BottomNavigationBarItem(icon: Icon(Icons.book_outlined), label: "Informasi"),
+          BottomNavigationBarItem(icon: Icon(Icons.receipt_long_rounded), label: "Riwayat"),
+          BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: "Profile"),
+        ],
+      ),
     );
   }
 }
 
+// Komponen Reusable Widget khusus ListTile Menu
 class ProfileMenuItem extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -170,17 +296,17 @@ class ProfileMenuItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(vertical: 4),
+      contentPadding: const EdgeInsets.symmetric(vertical: 2),
       leading: CircleAvatar(
-        radius: 18,
-        backgroundColor: ProfileScreen.primaryTeal,
-        child: Icon(icon, color: Colors.white, size: 18),
+        radius: 16,
+        backgroundColor: const Color(0xFFE8F5E9),
+        child: Icon(icon, color: ProfileScreen.primaryGreen, size: 16),
       ),
       title: Text(
         title,
-        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF1A1A1A)),
+        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF1A1A1A)),
       ),
-      trailing: const Icon(Icons.chevron_right, color: Colors.black54),
+      trailing: const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
     );
   }
 }
