@@ -856,6 +856,79 @@ def reset_password():
             "message":
                 "Reset password gagal"
         }), 500
+    
+    # ================= RIWAYAT BOOKING (SINKRON KE FLUTTER) =================
+
+@app.route("/api/history", methods=["GET"])
+def get_history():
+    client_name = request.args.get('client_name')
+    if not client_name:
+        return jsonify({"status": "error", "message": "client_name wajib diisi"}), 400
+
+    try:
+        db = get_db()
+        cur = db.cursor(dictionary=True)
+        # Mengambil riwayat booking user berdasarkan nama
+        cur.execute("SELECT * FROM booking_history WHERE client_name = %s", (client_name,))
+        data = cur.fetchall()
+        cur.close()
+        return jsonify(data), 200
+    except Exception as e:
+        print("GET HISTORY ERROR:", e)
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/api/submit-review", methods=["POST"])
+def submit_review():
+    try:
+        data = request.get_json(silent=True)
+        booking_id = data.get("booking_id")
+        rating = data.get("rating")
+        comment = data.get("comment")
+
+        if not booking_id or rating is None:
+            return jsonify({"status": "error", "message": "Data tidak lengkap"}), 400
+
+        db = get_db()
+        cur = db.cursor()
+        cur.execute(
+            """
+            UPDATE booking_history 
+            SET reviewed = TRUE, rating = %s, comment = %s 
+            WHERE id = %s
+            """,
+            (rating, comment, booking_id)
+        )
+        db.commit()
+        cur.close()
+        return jsonify({"status": "success", "message": "Ulasan berhasil disimpan"}), 200
+    except Exception as e:
+        print("SUBMIT REVIEW ERROR:", e)
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/api/cancel-booking", methods=["POST"])
+def cancel_booking():
+    try:
+        data = request.get_json(silent=True)
+        booking_id = data.get("booking_id")
+
+        if not booking_id:
+            return jsonify({"status": "error", "message": "booking_id wajib diisi"}), 400
+
+        db = get_db()
+        cur = db.cursor()
+        cur.execute(
+            "UPDATE booking_history SET status = 'Dibatalkan' WHERE id = %s",
+            (booking_id,)
+        )
+        db.commit()
+        cur.close()
+        return jsonify({"status": "success", "message": "Booking berhasil dibatalkan"}), 200
+    except Exception as e:
+        print("CANCEL BOOKING ERROR:", e)
+        return jsonify({"status": "error", "message": str(e)}), 500
+    
     # ================= RUN SERVER =================
 if __name__ == "__main__":
     app.run(

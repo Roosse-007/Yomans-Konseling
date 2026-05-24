@@ -9,9 +9,15 @@ class DetailArtikel extends StatelessWidget {
     required this.data,
   });
 
+  // ================= WARNA =================
+  static const Color primaryGreen = Color(0xff2d6a4f); // Artikel Mental
+  static const Color edukasiGreen = Color(0xff4CAF50); // Edukasi Mental (sesuai gambar)
+
   Color getColor(String kategori) {
     if (kategori == "Artikel Mental") {
-      return Colors.blue;
+      return primaryGreen;
+    } else if (kategori == "Edukasi Mental") {
+      return edukasiGreen;
     }
     return Colors.green;
   }
@@ -28,13 +34,14 @@ class DetailArtikel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final Color kategoriColor = getColor(data['kategori']);
+
     return Scaffold(
       backgroundColor: const Color(0xffF4F7FC),
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.white,
         centerTitle: true,
-        // ================= TOMBOL BACK IOS (DIUBAH) =================
         leading: IconButton(
           icon: const Icon(
             Icons.arrow_back_ios_new_rounded,
@@ -63,8 +70,8 @@ class DetailArtikel extends StatelessWidget {
                 vertical: 8,
               ),
               decoration: BoxDecoration(
-                color: getColor(data['kategori']),
-                borderRadius: BorderRadius.circular(30),
+                color: kategoriColor,
+                borderRadius: BorderRadius.circular(50),
               ),
               child: Text(
                 data['kategori'],
@@ -116,14 +123,14 @@ class DetailArtikel extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
+                  Row(
                     children: [
                       Icon(
                         Icons.verified,
-                        color: Colors.blue,
+                        color: kategoriColor,
                       ),
-                      SizedBox(width: 10),
-                      Text(
+                      const SizedBox(width: 10),
+                      const Text(
                         "Sumber Referensi",
                         style: TextStyle(
                           fontSize: 20,
@@ -147,7 +154,7 @@ class DetailArtikel extends StatelessWidget {
                     height: 52,
                     child: ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: getColor(data['kategori']),
+                        backgroundColor: kategoriColor,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
                         ),

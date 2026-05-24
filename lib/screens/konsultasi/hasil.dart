@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../dokter/booking.dart';
+import 'package:yomans_konseling/screens/dokter/PilihPsikologPage.dart';
+
 
 class HasilPage extends StatelessWidget {
   final Map<String, dynamic> result;
@@ -152,7 +153,7 @@ class HasilPage extends StatelessWidget {
                                   onPressed: () {
                                     Navigator.push(
                                       context,
-                                      MaterialPageRoute(builder: (_) => BookingPage()),
+                                      MaterialPageRoute(builder: (_) => PilihPsikologPage()),
                                     );
                                   },
                                   style: ElevatedButton.styleFrom(

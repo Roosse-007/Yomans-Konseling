@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:yomans_konseling/screens/halaman_akun/profile_screen.dart';
+import 'package:yomans_konseling/screens/history_boking/history_boking.dart';
 import 'package:yomans_konseling/screens/home/home.dart';
 import 'detail_artikel.dart';
 
@@ -217,7 +218,7 @@ class _InformasiState extends State<Informasi> {
           } else if (index == 1) {
             // Sudah berada di halaman Informasi
           } else if (index == 2) {
-            // Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => PesananPage())); 
+             Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => HistoryBookingPage())); 
           } else if (index == 3) {
              Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => ProfileScreen())); 
           }

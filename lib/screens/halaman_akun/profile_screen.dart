@@ -7,6 +7,7 @@ import 'package:yomans_konseling/providers/auth_provider.dart';
 import 'package:yomans_konseling/screens/berita/informasi.dart';
 import 'package:yomans_konseling/screens/halaman_akun/edit_profile.dart';
 import 'package:yomans_konseling/screens/halaman_akun/ganti_password.dart';
+import 'package:yomans_konseling/screens/history_boking/history_boking.dart';
 import 'package:yomans_konseling/screens/home/home.dart';
 
 // 💡 PASTIKAN PATH IMPORT DI BAWAH INI SUDAH SESUAI DENGAN PROYEKMU
@@ -263,7 +264,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Navigator.push(context, MaterialPageRoute(builder: (_) => Informasi()));
           } else if (index == 2) {
             // Hindari error pemanggilan dengan memastikan widget HomePage() sudah diimport
-            // Navigator.push(context, MaterialPageRoute(builder: (_) => HomePage())); 
+            // 
+            Navigator.push(context, MaterialPageRoute(builder: (_) => HistoryBookingPage())); 
           } else if (index == 3) {
             // Karena ini sudah di halaman ProfileScreen, tidak perlu push kembali ke diri sendiri
           }

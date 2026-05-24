@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:yomans_konseling/providers/dokter_provider.dart';
 import 'package:yomans_konseling/screens/berita/informasi.dart';
-import 'package:yomans_konseling/screens/dokter/dokter.dart';
+import 'package:yomans_konseling/screens/dokter/detail_booking.dart';
 import 'package:yomans_konseling/screens/halaman_akun/profile_screen.dart';
 import 'package:yomans_konseling/screens/home/home.dart';
 // Pastikan import ini sesuai dengan struktur file aplikasi Anda
@@ -154,16 +154,23 @@ class _DokterCardState extends State<_DokterCard> {
         onTapDown: (_) => setState(() => isPressed = true),
         onTapCancel: () => setState(() => isPressed = false),
         onTapUp: (_) {
-          setState(() => isPressed = false);
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => PsikologPage(
-                dokterId: widget.id,
-              ),
-            ),
-          );
+  setState(() => isPressed = false);
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => DetailBookingPage(
+        dataDokter: {
+          'id': widget.id,
+          'nama': widget.nama,
+          'jadwal': widget.jadwal,
+          'image': widget.imageUrl,
+          'tags': widget.tags.cast<String>(),
+          // Tambahkan field lain yang dibutuhkan oleh DetailBookingPage di sini
         },
+      ),
+    ),
+  );
+},
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
           margin: const EdgeInsets.only(bottom: 12),
@@ -232,8 +239,8 @@ class _DokterCardState extends State<_DokterCard> {
                       children: widget.tags.take(3).map((tag) {
                         return Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
+                            horizontal: 16,
+                            vertical: 8,
                           ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFE8F5E9),
@@ -253,42 +260,64 @@ class _DokterCardState extends State<_DokterCard> {
                     const SizedBox(height: 12),
 
                     // DETAIL JADWAL TERCEPAT
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              "Jadwal tercepat",
-                              style: TextStyle(
-                                fontSize: 9,
-                                color: Colors.grey,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF1B5E20),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            widget.jadwal,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+// DETAIL JADWAL TERCEPAT
+Row(
+  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  children: [
+    const Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "Jadwal tercepat",
+          style: TextStyle(
+            fontSize: 10,
+            color: Colors.grey,
+          ),
+        ),
+      ],
+    ),
+    const SizedBox(width: 8),
+    
+    // ================= NAVIGASI TOMBOL JADWAL KE DETAIL BOOKING =================
+GestureDetector(
+  onTap: () {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => DetailBookingPage(
+          // Membungkus seluruh parameter ke dalam satu Map dataDokter
+          dataDokter: {
+            'id': widget.id, 
+            'nama': widget.nama,
+            'jadwal': widget.jadwal,
+            'image': widget.imageUrl,
+            'tags': widget.tags.cast<String>(), // Pastikan variabel image ini ada di kelas asalmu // Sediakan default jika datanya null
+          },
+        ),
+      ),
+    );
+  },
+  child: Container(
+    padding: const EdgeInsets.symmetric(
+      horizontal: 8,
+      vertical: 3,
+    ),
+    decoration: BoxDecoration(
+      color: const Color(0xFF1B5E20),
+      borderRadius: BorderRadius.circular(6),
+    ),
+    child: Text(
+      widget.jadwal,
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 10,
+        fontWeight: FontWeight.bold,
+      ),
+    ),
+  ),
+),
+  ],
+),
                   ],
                 ),
               ),

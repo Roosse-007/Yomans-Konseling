@@ -143,231 +143,226 @@ class _LoginPageState extends State<LoginPage> {
       body: SafeArea(
         child: Stack(
           children: [
-            // ================= TOMBOL BACK POJOK KIRI ATAS =================
-            Positioned(
-              top: 12,
-              left: 10,
-              child: IconButton(
-                icon: const Icon(Icons.arrow_back, color: Colors.black, size: 28),
-                onPressed: () {
-                  // Aksi back jika diperlukan
-                },
+            // ================= 1. WATERMARK BACKGROUND (SUPER BESAR) =================
+              Center(
+                child: Opacity(
+                  opacity: 0.12, 
+                  child: Image.asset(
+                    'lib/assets/logo_yomans.png',
+                    // Mengubah multiplier dari 1.6 menjadi 2.2 agar ukuran logo jauh lebih raksasa
+                    width: MediaQuery.of(context).size.width * 2.2,
+                    fit: BoxFit.contain,
+                  ),
+                ),
               ),
-            ),
 
-            // ================= LOGO YOMANS POJOK KANAN ATAS =================
-            Positioned(
-              top: 12,
-              right: 20,
-              child: Image.asset(
-                'lib/assets/logo_yomans.png', // Menggunakan path folder lib Anda
-                width: 65, // Ukuran logo proporsional di pojok atas
-                height: 65,
-                fit: BoxFit.contain,
-              ),
-            ),
+            // --- Tombol Back dan Logo Kecil Pojok Atas Sudah Dihapus ---
 
-            // ================= KONTEN UTAMA =================
-            Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 28.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const SizedBox(height: 70), // Memberi ruang agar tidak tertabrak logo atas
-                    
-                    // ================= TITLE =================
-                    Text(
-                      "Login",
-                      style: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        color: primaryGreen,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // ================= REGISTER LINK =================
-                    Row(
-                      children: [
-                        const Text(
-                          "Belum punya akun? ",
-                          style: TextStyle(fontSize: 14, color: Colors.black87),
+            // ================= 2. LAYER KONTEN UTAMA =================
+            Positioned.fill(
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 28.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // ================= TITLE =================
+                      Text(
+                        "Login",
+                        style: TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                          color: primaryGreen,
                         ),
-                        GestureDetector(
-                          onTap: () {
+                      ),
+                      const SizedBox(height: 16),
+
+                      // ================= REGISTER LINK =================
+                      Row(
+                        children: [
+                          const Text(
+                            "Belum punya akun? ",
+                            style: TextStyle(fontSize: 14, color: Colors.black87),
+                          ),
+                          // Menambahkan MouseRegion agar kursor berubah menjadi telunjuk (pointer)
+                          MouseRegion(
+                            cursor: SystemMouseCursors.click,
+                            child: GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const RegisterPage(),
+                                  ),
+                                );
+                              },
+                              child: Text(
+                                "Buat akun",
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: primaryGreen,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 40),
+
+                      // ================= FIELD USERNAME =================
+                      Text(
+                        "Username",
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: primaryGreen,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Material(
+                        elevation: 2,
+                        shadowColor: Colors.black12,
+                        borderRadius: BorderRadius.circular(8),
+                        child: TextField(
+                          controller: user,
+                          keyboardType: TextInputType.text, // Diubah menjadi input teks biasa
+                          decoration: InputDecoration(
+                            hintText: "masukkan username",
+                            hintStyle: const TextStyle(color: Colors.grey, fontSize: 14),
+                            fillColor: const Color(0xFFF9F9F9),
+                            filled: true,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // ================= FIELD PASSWORD =================
+                      Text(
+                        "Password",
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: primaryGreen,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Material(
+                        elevation: 2,
+                        shadowColor: Colors.black12,
+                        borderRadius: BorderRadius.circular(8),
+                        child: TextField(
+                          controller: pass,
+                          obscureText: obscurePassword,
+                          decoration: InputDecoration(
+                            hintText: "masukkan password",
+                            hintStyle: const TextStyle(color: Colors.grey, fontSize: 14),
+                            fillColor: const Color(0xFFF9F9F9),
+                            filled: true,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            suffixIcon: IconButton(
+                              onPressed: () {
+                                setState(() {
+                                  obscurePassword = !obscurePassword;
+                                });
+                              },
+                              icon: Icon(
+                                obscurePassword
+                                    ? Icons.visibility_off_outlined
+                                    : Icons.visibility_outlined,
+                                color: primaryGreen,
+                              ),
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      // ================= LUPA PASSWORD =================
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: () {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => const RegisterPage(),
+                                builder: (context) => const ForgotPasswordPage(),
                               ),
                             );
                           },
-                          child: Text(
-                            "Buat akun",
+                          child: const Text(
+                            "Lupa password?",
                             style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: primaryGreen,
+                              color: Colors.black87,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 40),
+                      ),
+                      const SizedBox(height: 10),
 
-                    // ================= FIELD NO TELPON =================
-                    Text(
-                      "Username",
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: primaryGreen,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Material(
-                      elevation: 2,
-                      shadowColor: Colors.black26,
-                      borderRadius: BorderRadius.circular(8),
-                      child: TextField(
-                        controller: user,
-                        keyboardType: TextInputType.phone,
-                        decoration: InputDecoration(
-                          hintText: "masukkan Username",
-                          hintStyle: const TextStyle(color: Colors.grey, fontSize: 14),
-                          fillColor: const Color(0xFFF9F9F9),
-                          filled: true,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide.none,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // ================= FIELD PASSWORD =================
-                    Text(
-                      "pasword",
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: primaryGreen,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Material(
-                      elevation: 2,
-                      shadowColor: Colors.black26,
-                      borderRadius: BorderRadius.circular(8),
-                      child: TextField(
-                        controller: pass,
-                        obscureText: obscurePassword,
-                        decoration: InputDecoration(
-                          hintText: "masukkan password",
-                          hintStyle: const TextStyle(color: Colors.grey, fontSize: 14),
-                          fillColor: const Color(0xFFF9F9F9),
-                          filled: true,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                          suffixIcon: IconButton(
-                            onPressed: () {
-                              setState(() {
-                                obscurePassword = !obscurePassword;
-                              });
-                            },
-                            icon: Icon(
-                              obscurePassword
-                                  ? Icons.visibility_off_outlined
-                                  : Icons.visibility_outlined,
-                              color: primaryGreen,
-                            ),
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide.none,
-                          ),
-                        ),
-                      ),
-                    ),
-                    
-                    // ================= LUPA PASSWORD =================
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const ForgotPasswordPage(),
-                            ),
-                          );
-                        },
-                        child: const Text(
-                          "Lupa password?",
-                          style: TextStyle(
-                            color: Colors.black87,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-
-                    // ================= PRIVACY POLICY TEXT =================
-                    RichText(
-                      textAlign: TextAlign.center,
-                      text: TextSpan(
-                        style: const TextStyle(color: Colors.black87, fontSize: 12, height: 1.4),
-                        children: [
-                          const TextSpan(text: "Dengan menggunakan layanan Yoman Konselingkamu menyetujui "),
-                          TextSpan(
-                            text: "kebijakan privasi",
-                            style: TextStyle(
-                              color: primaryGreen,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const TextSpan(text: " dari layanan kami"),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // ================= LOGIN BUTTON =================
-                    SizedBox(
-                      height: 50,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: primaryGreen,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(25),
-                          ),
-                          elevation: 0,
-                        ),
-                        onPressed: isLoading ? null : doLogin,
-                        child: isLoading
-                            ? const SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Text(
-                                "Login",
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                      // ================= PRIVACY POLICY TEXT =================
+                      RichText(
+                        textAlign: TextAlign.center,
+                        text: TextSpan(
+                          style: const TextStyle(color: Colors.black87, fontSize: 12, height: 1.4),
+                          children: [
+                            const TextSpan(text: "Dengan menggunakan layanan Yoman Konseling kamu menyetujui "),
+                            TextSpan(
+                              text: "kebijakan privasi",
+                              style: TextStyle(
+                                color: primaryGreen,
+                                fontWeight: FontWeight.bold,
                               ),
+                            ),
+                            const TextSpan(text: " dari layanan kami"),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 20),
-                  ],
+                      const SizedBox(height: 24),
+
+                      // ================= LOGIN BUTTON =================
+                      SizedBox(
+                        height: 50,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryGreen,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(25),
+                            ),
+                            elevation: 0,
+                          ),
+                          onPressed: isLoading ? null : doLogin,
+                          child: isLoading
+                              ? const SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text(
+                                  "Login",
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
                 ),
               ),
             ),

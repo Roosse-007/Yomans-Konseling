@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:yomans_konseling/screens/dokter/PilihPsikologPage.dart';
+import 'package:yomans_konseling/screens/dokter/detail_booking.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../providers/dokter_provider.dart'; 
 
 import '../konsultasi/konsultasi.dart';
 import '../berita/informasi.dart';
-import '../dokter/dokter.dart';
 import '../admin/dashboard.dart';
 import 'package:yomans_konseling/screens/history_boking/history_boking.dart';
 import 'package:yomans_konseling/screens/halaman_akun/profile_screen.dart'; 
@@ -281,8 +281,8 @@ class _HomePageState extends State<HomePage> {
     ),
 
     BottomNavigationBarItem(
-      icon: Icon(Icons.shopping_cart_outlined),
-      label: "Pesanan",
+      icon: Icon(Icons.receipt_long_rounded),
+      label: "Riwayat",
     ),
 
     BottomNavigationBarItem(
@@ -372,6 +372,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   // ================= WIDGET BUILDER UNTUK CARD SLIDER PSIKOLOG =================
+  // ================= WIDGET BUILDER UNTUK CARD SLIDER PSIKOLOG =================
   Widget _buildDokterCard(
     BuildContext context, {
     required int id,
@@ -392,7 +393,15 @@ class _HomePageState extends State<HomePage> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => PsikologPage(dokterId: id),
+                builder: (_) => DetailBookingPage(
+                  dataDokter: {
+                    'id': id,         // Perbaikan: pakai parameter langsung
+                    'nama': name,     // Perbaikan: pakai parameter langsung
+                    'jadwal': time,   // Perbaikan: pakai parameter langsung
+                    'image': imagePath,// Perbaikan: pakai parameter langsung
+                    'tags': tags,     // Perbaikan: pakai parameter langsung
+                  },
+                ),
               ),
             );
           },
