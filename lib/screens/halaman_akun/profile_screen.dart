@@ -9,6 +9,7 @@ import 'package:yomans_konseling/screens/halaman_akun/edit_profile.dart';
 import 'package:yomans_konseling/screens/halaman_akun/ganti_password.dart';
 import 'package:yomans_konseling/screens/history_boking/history_boking.dart';
 import 'package:yomans_konseling/screens/home/home.dart';
+import 'package:yomans_konseling/screens/auth/login.dart';
 
 // 💡 PASTIKAN PATH IMPORT DI BAWAH INI SUDAH SESUAI DENGAN PROYEKMU
 // import 'package:yomans_konseling/screens/home_page.dart'; 
@@ -63,39 +64,63 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _showSignOutDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          title: const Text('Sign Out', style: TextStyle(fontWeight: FontWeight.bold)),
-          content: const Text('Apakah Anda yakin ingin keluar dari akun ini?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Batal', style: TextStyle(color: Colors.grey)),
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        title: const Text(
+          'Sign Out',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: const Text(
+          'Apakah Anda yakin ingin keluar dari akun ini?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Batal',
+              style: TextStyle(color: Colors.grey),
             ),
-            TextButton(
-              onPressed: () async {
-                Navigator.pop(context);
-                
-                // --- SINKRONISASI LOGOUT KE AUTHPROVIDER ---
-                await Provider.of<AuthProvider>(context, listen: false).logout();
-                
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Berhasil keluar')),
-                  );
-                }
-              },
-              child: const Text('Keluar', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-            ),
-          ],
-        );
-      },
-    );
-  }
+          ),
+          TextButton(
+            onPressed: () async {
+              // Tutup dialog
+              Navigator.pop(context);
 
+              // Logout dari provider
+              await Provider.of<AuthProvider>(
+                context,
+                listen: false,
+              ).logout();
+
+              // Pindah ke halaman login
+              if (context.mounted) {
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const LoginPage(),
+                  ),
+                  (route) => false,
+                );
+              }
+            },
+            child: const Text(
+              'Keluar',
+              style: TextStyle(
+                color: Colors.red,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      );
+    },
+  );
+}
   // LOGIKA PINTAR UNTUK MENAMPILKAN GAMBAR (Mencegah crash 'js_allow_interop' di Web)
   ImageProvider _getProfileImage(String path) {
     if (path.startsWith('http') || path.startsWith('https')) {
