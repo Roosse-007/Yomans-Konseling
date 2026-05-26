@@ -484,30 +484,83 @@ def dokter():
 
 
 # ================= BOOKING =================
+# ================= BOOKING (REVISI DINAMIS HARGA) =================
 @app.route("/api/booking", methods=["POST"])
 def booking():
     try:
         data = request.get_json(silent=True)
         if not data or not all(k in data for k in ("user_id", "dokter_id", "tanggal", "keluhan")):
-            return jsonify({"status": "error", "message": "Data booking tidak lengkap"}), 400
+            return jsonify({"status": "error", "message": "Data tidak lengkap"}), 400
+
+        user_id = data.get("user_id")
+        dokter_id = data.get("dokter_id")
+        tanggal = data.get("tanggal")
+        keluhan = data.get("keluhan")
 
         db = get_db()
-        cur = db.cursor()
+        cur = db.cursor(dictionary=True)
+        
+        # 1. Ambil harga dari tabel dokter agar sinkron
+        cur.execute("SELECT harga FROM dokter WHERE id = %s", (dokter_id,))
+        dokter = cur.fetchone()
+        
+        if not dokter:
+            return jsonify({"status": "error", "message": "Dokter tidak ditemukan"}), 404
+            
+        total_pembayaran = dokter['harga'] # Menggunakan harga dari DB
+
+        # 2. Simpan ke database
         cur.execute(
             """
-            INSERT INTO booking (user_id, dokter_id, tanggal, keluhan) 
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO booking (user_id, dokter_id, tanggal, keluhan, total_price) 
+            VALUES (%s, %s, %s, %s, %s)
             """,
-            (data.get("user_id"), data.get("dokter_id"), data.get("tanggal"), data.get("keluhan"))
+            (user_id, dokter_id, tanggal, keluhan, total_pembayaran)
         )
         db.commit()
+        booking_id = cur.lastrowid # Ambil ID booking yang baru dibuat
+        cur.close()
 
-        return jsonify({"status": "success", "message": "Booking berhasil"})
+        return jsonify({
+            "status": "success", 
+            "message": "Booking berhasil",
+            "booking_id": booking_id,
+            "total_harga": total_pembayaran
+        }), 200
+        
     except Exception as e:
         print("BOOKING ERROR:", e)
         return jsonify({"status": "error", "message": "Booking gagal"}), 500
-    
+# ================= TAMBAHAN FITUR PEMBAYARAN VA =================
 
+@app.route("/api/get-va-details/<int:booking_id>", methods=["GET"])
+def get_va_details(booking_id):
+    """
+    Mengambil detail VA setelah user berhasil melakukan booking.
+    """
+    try:
+        db = get_db()
+        cur = db.cursor(dictionary=True)
+        # Ambil data dari tabel booking
+        cur.execute("SELECT id, total_price FROM booking WHERE id = %s", (booking_id,))
+        booking = cur.fetchone()
+        
+        if not booking:
+            return jsonify({"status": "error", "message": "Booking tidak ditemukan"}), 404
+            
+        # Logika VA: Biasanya di sini Anda memanggil API Payment Gateway (Xendit/Midtrans)
+        # Untuk simulasi, kita kembalikan data statis sesuai desain Anda
+        return jsonify({
+            "status": "success",
+            "data": {
+                "va_number": "7000701501999576408", 
+                "bank": "BCA",
+                "account_name": "Yomansid",
+                "amount": booking['total_price']
+            }
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 # ================= ARTIKEL MENTAL =================
 @app.route("/api/artikel", methods=["GET"])
 def artikel():

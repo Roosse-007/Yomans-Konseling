@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:yomans_konseling/screens/pembayaran/payment.dart';
 
 class DetailBookingPage extends StatefulWidget {
@@ -16,21 +17,22 @@ class _DetailBookingPageState extends State<DetailBookingPage> {
   PersistentBottomSheetController? _sheetController;
   bool _isSheetOpen = false; 
   bool _isTabProfilAktif = true; 
-
+   
   String _pilihanWaktu = 'Semua';
   String _pilihanDurasi = '1 jam';
 
   final List<String> _listWaktu = ['Semua', 'Pagi', 'Siang', 'Sore', 'Malam'];
   final List<String> _listDurasi = ['30 Menit', '1 jam', '1.5 jam', '2 jam'];
 
-  // Ambil nama depan dengan aman
+  // 1. TAMBAHKAN VARIABEL INI UNTUK REMOTING STATE DARI LUAR
+  StateSetter? _updateHargaBottomSheet;
+
   String _getNamaDepan(String fullName) {
     if (fullName.isEmpty) return '';
     String cleanName = fullName.replaceAll(RegExp(r',.*'), ''); 
     return cleanName.split(' ')[0];
   }
 
-  // Konversi data tag secara aman agar tidak memicu crash/layang kosong
   List<String> _ambilTagsAman() {
     try {
       if (widget.dataDokter['tags'] != null) {
@@ -39,7 +41,7 @@ class _DetailBookingPageState extends State<DetailBookingPage> {
     } catch (e) {
       debugPrint("Error parsing tags: $e");
     }
-    return []; // Return list kosong jika gagal agar aplikasi tidak crash
+    return []; 
   }
 
   void _bukaBottomSheetKonfirmasi() {
@@ -51,186 +53,268 @@ class _DetailBookingPageState extends State<DetailBookingPage> {
 
     _sheetController = _scaffoldKey.currentState?.showBottomSheet(
       (context) {
-        final String imagePath = widget.dataDokter['image'] ?? '';
-        final bool isNetworkImage = imagePath.startsWith('http');
-        final String namaLengkap = widget.dataDokter['nama'] ?? '';
-        final String namaDepan = _getNamaDepan(namaLengkap);
-        final List<String> tags = _ambilTagsAman();
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setSheetState) {
+            // 2. SIMPAN STATE SETTER KE VARIABEL GLOBAL AGAR BISA DIAKSES DI LUAR
+            _updateHargaBottomSheet = setSheetState;
 
-        return Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: const BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.15),
-                blurRadius: 10, 
-                spreadRadius: 1
-              )
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      _isTabProfilAktif 
-                          ? 'Bagikan Sesi Konseling' 
-                          : 'Konseling dengan Psikolog $namaDepan', 
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close, size: 20),
-                      onPressed: () {
-                        _sheetController?.close();
-                      },
-                    ),
-                  ],
-                ),
+            final String imagePath = widget.dataDokter['image'] ?? '';
+            final bool isNetworkImage = imagePath.startsWith('http');
+            final String namaLengkap = widget.dataDokter['nama'] ?? '';
+            final String namaDepan = _getNamaDepan(namaLengkap);
+            final List<String> tags = _ambilTagsAman();
+
+            // LOGIKA HITUNG HARGA DINAMIS BERDASARKAN DURASI
+            String hargaCoret = 'Rp349.000';
+            String hargaFix = 'Rp249.000';
+            String diskonPersen = '-29%';
+
+            if (widget.dataDokter['harga_diskon'] != null) {
+              hargaCoret = widget.dataDokter['harga_asli']?.toString() ?? '';
+              hargaFix = widget.dataDokter['harga_diskon']?.toString() ?? '';
+              diskonPersen = widget.dataDokter['diskon']?.toString() ?? '';
+            } else {
+              if (_pilihanDurasi == '30 Menit') {
+                hargaCoret = 'Rp199.000';
+                hargaFix = 'Rp149.000';
+                diskonPersen = '-25%';
+              } else if (_pilihanDurasi == '1 jam') {
+                hargaCoret = 'Rp349.000';
+                hargaFix = 'Rp249.000';
+                diskonPersen = '-29%';
+              } else if (_pilihanDurasi == '1.5 jam') {
+                hargaCoret = 'Rp499.000';
+                hargaFix = 'Rp349.000';
+                diskonPersen = '-30%';
+              } else if (_pilihanDurasi == '2 jam') {
+                hargaCoret = 'Rp599.000';
+                hargaFix = 'Rp449.000';
+                diskonPersen = '-25%';
+              }
+            }
+
+            return Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: const BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.15),
+                    blurRadius: 10, 
+                    spreadRadius: 1
+                  )
+                ],
               ),
-              const Divider(height: 1),
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            border: Border.all(color: const Color(0xff2d6a4f), width: 2),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(10),
-                            child: isNetworkImage
-                                ? Image.network(imagePath, height: 75, width: 75, fit: BoxFit.cover)
-                                : Image.asset(imagePath, height: 75, width: 75, fit: BoxFit.cover),
-                          ),
+                        Text(
+                          _isTabProfilAktif 
+                              ? 'Bagikan Sesi Konseling' 
+                              : 'Konseling dengan Psikolog $namaDepan', 
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black),
                         ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const SizedBox(height: 4),
-                              Text(
-                                namaLengkap, 
-                                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black)
-                              ),
-                              const SizedBox(height: 8),
-                              Wrap(
-                                spacing: 6,
-                                runSpacing: 4,
-                                children: tags.map((tag) {
-                                  return Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                    decoration: BoxDecoration(color: const Color(0xffe8f5e9), borderRadius: BorderRadius.circular(6)),
-                                    child: Text(tag, style: const TextStyle(color: Color(0xff2d6a4f), fontSize: 9, fontWeight: FontWeight.w600)),
-                                  );
-                                }).toList(),
-                              )
-                            ],
-                          ),
-                        )
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Icon(Icons.verified_user, color: Colors.green, size: 18),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: RichText(
-                            text: const TextSpan(
-                              style: TextStyle(fontSize: 11, color: Colors.grey, height: 1.3),
-                              children: [
-                                TextSpan(text: 'Tenang, pengalaman konselingmu dijamin aman dengan '),
-                                TextSpan(text: 'Jaminan Efektivitas Konseling', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
-                              ],
-                            ),
-                          ),
+                        IconButton(
+                          icon: const Icon(Icons.close, size: 20),
+                          onPressed: () {
+                            _sheetController?.close();
+                          },
                         ),
                       ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        const SizedBox(width: 26),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Text('Rp349.000', style: TextStyle(fontSize: 11, color: Colors.grey[400], decoration: TextDecoration.lineThrough)),
-                                const SizedBox(width: 4),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                  color: Colors.red[50],
-                                  child: const Text('-29%', style: TextStyle(color: Colors.red, fontSize: 9, fontWeight: FontWeight.bold)),
-                                )
-                              ],
-                            ),
-                            const Text('Rp249.000', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black)),
-                          ],
-                        )
-                      ],
-                    )
-                  ],
-                ),
-              ),
-              const Divider(height: 1),
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: SizedBox(
-                  width: double.infinity,
-                  height: 42,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      showDialog(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                          title: const Text('Konfirmasi Pertemuan', style: TextStyle(fontWeight: FontWeight.bold)),
-                          content: Text('Buat janji temu bersama Psikolog $namaDepan pada sesi $_pilihanWaktu ($_pilihanDurasi)?'),
-                          actions: [
-                            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Batal', style: TextStyle(color: Colors.grey))),
-                            ElevatedButton(
-                              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xff2d6a4f)),
-                              onPressed: () {
-                                Navigator.pop(context); 
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => const PaymentMethodPage(),
-                                  ),
-                                );
-                              },
-                              child: const Text('Ya, Konfirmasi', style: TextStyle(color: Colors.white)),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xff006432),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-                      elevation: 0,
-                    ),
-                    child: Text(
-                      _isTabProfilAktif ? 'Konseling Dengan Psikolog' : 'Pilih Jadwal', 
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                     ),
                   ),
-                ),
-              )
-            ],
-          ),
+                  const Divider(height: 1),
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              decoration: BoxDecoration(
+                                border: Border.all(color: const Color(0xff2d6a4f), width: 2),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(10),
+                                child: isNetworkImage
+                                    ? Image.network(imagePath, height: 75, width: 75, fit: BoxFit.cover)
+                                    : Image.asset(imagePath, height: 75, width: 75, fit: BoxFit.cover),
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    namaLengkap, 
+                                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black)
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 4,
+                                    children: tags.map((tag) {
+                                      return Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(color: const Color(0xffe8f5e9), borderRadius: BorderRadius.circular(6)),
+                                        child: Text(tag, style: const TextStyle(color: Color(0xff2d6a4f), fontSize: 9, fontWeight: FontWeight.w600)),
+                                      );
+                                    }).toList(),
+                                  )
+                                ],
+                              ),
+                            )
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.verified_user, color: Colors.green, size: 18),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: RichText(
+                                text: const TextSpan(
+                                  style: TextStyle(fontSize: 11, color: Colors.grey, height: 1.3),
+                                  children: [
+                                    TextSpan(text: 'Tenang, pengalaman konselingmu dijamin aman dengan '),
+                                    TextSpan(text: 'Jaminan Efektivitas Konseling', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            const SizedBox(width: 26),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(hargaCoret, style: TextStyle(fontSize: 11, color: Colors.grey[400], decoration: TextDecoration.lineThrough)),
+                                    const SizedBox(width: 4),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                      color: Colors.red[50],
+                                      child: Text(diskonPersen, style: const TextStyle(color: Colors.red, fontSize: 9, fontWeight: FontWeight.bold)),
+                                    )
+                                  ],
+                                ),
+                                Text(hargaFix, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black)),
+                              ],
+                            )
+                          ],
+                        )
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: 42,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xff006432),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+                          elevation: 0,
+                        ),
+                        onPressed: () {
+                          showDialog(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              title: const Text('Konfirmasi Pertemuan', style: TextStyle(fontWeight: FontWeight.bold)),
+                              content: Text('Buat janji temu bersama Psikolog $namaDepan pada sesi $_pilihanWaktu ($_pilihanDurasi)?'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context), 
+                                  child: const Text('Batal', style: TextStyle(color: Colors.grey))
+                                ),
+                                ElevatedButton(
+                                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xff2d6a4f)),
+                                  onPressed: () async {
+                                    Navigator.pop(context); 
+
+                                    showDialog(
+                                      context: context,
+                                      barrierDismissible: false,
+                                      builder: (context) => const Center(
+                                        child: CircularProgressIndicator(color: Colors.green),
+                                      ),
+                                    );
+
+                                    try {
+                                      final rawId = widget.dataDokter['id'];
+                                      final int dokterIdAnak = rawId is int 
+                                          ? rawId 
+                                          : (int.tryParse(rawId.toString()) ?? 1);
+
+                                      final dynamic provider = Provider.of<dynamic>(context, listen: false); 
+                                      
+                                      var res = await provider.buatBooking(
+                                        userId: 1, 
+                                        dokterId: dokterIdAnak, 
+                                        tanggal: "2026-05-25 18:00:00", 
+                                        keluhan: "Sering cemas di malam hari", 
+                                        duration: _pilihanDurasi, 
+                                      );
+
+                                      Navigator.pop(context); 
+
+                                      if (res != null && res['status'] == 'success') {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => const PaymentMethodPage(),
+                                          ),
+                                        );
+                                      } else {
+                                        String pesanError = res != null ? res['message'] : 'Terjadi kesalahan respon';
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text('Gagal booking: $pesanError')),
+                                        );
+                                      }
+                                    } catch (e) {
+                                      Navigator.pop(context); 
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => const PaymentMethodPage(),
+                                        ),
+                                      );
+                                    }
+                                  },
+                                  child: const Text('Ya, Konfirmasi', style: TextStyle(color: Colors.white)),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                        child: Text(
+                          _isTabProfilAktif ? 'Konseling Dengan Psikolog' : 'Pilih Jadwal', 
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                      ),
+                    ),
+                  )
+                ],
+              ),
+            );
+          },
         );
       },
       backgroundColor: Colors.transparent,
@@ -240,6 +324,7 @@ class _DetailBookingPageState extends State<DetailBookingPage> {
     _sheetController?.closed.then((_) {
       setState(() {
         _isSheetOpen = false;
+        _updateHargaBottomSheet = null; // Reset saat ditutup
       });
     });
   }
@@ -442,7 +527,6 @@ class _DetailBookingPageState extends State<DetailBookingPage> {
     );
   }
 
-  // Desain Header yang disesuaikan penuh dengan gambar acuan (Menggunakan Stack Background daun miring)
   Widget _buildHeaderProfilBesar(String imagePath, bool isNetworkImage, String namaLengkap) {
     final List<String> tags = _ambilTagsAman();
 
@@ -454,7 +538,6 @@ class _DetailBookingPageState extends State<DetailBookingPage> {
           Stack(
             alignment: Alignment.center,
             children: [
-              // Latar belakang hijau estetik melengkung seperti screenshot desain
               Container(
                 height: 130,
                 margin: const EdgeInsets.only(bottom: 70),
@@ -466,7 +549,6 @@ class _DetailBookingPageState extends State<DetailBookingPage> {
                   ),
                 ),
               ),
-              // Bingkai & Foto Profil Utama
               Positioned(
                 top: 25,
                 child: Container(
@@ -485,14 +567,12 @@ class _DetailBookingPageState extends State<DetailBookingPage> {
             ],
           ),
           const SizedBox(height: 4),
-          // Nama Lengkap Dokter / Psikolog
           Text(
             namaLengkap,
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black),
           ),
           const SizedBox(height: 12),
-          // Barisan tag kategori spesialisasi
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Wrap(
@@ -644,7 +724,9 @@ class _DetailBookingPageState extends State<DetailBookingPage> {
                       judul: 'Pilih Waktu Konseling',
                       opsiData: _listWaktu,
                       nilaiSekarang: _pilihanWaktu,
-                      padaSaatDipilih: (hasil) => setState(() => _pilihanWaktu = hasil),
+                      padaSaatDipilih: (hasil) {
+                        setState(() => _pilihanWaktu = hasil);
+                      },
                     );
                   },
                   child: _buildFilterDropdown(Icons.access_time, 'Waktu:', _pilihanWaktu),
@@ -658,7 +740,16 @@ class _DetailBookingPageState extends State<DetailBookingPage> {
                       judul: 'Pilih Durasi Konseling',
                       opsiData: _listDurasi,
                       nilaiSekarang: _pilihanDurasi,
-                      padaSaatDipilih: (hasil) => setState(() => _pilihanDurasi = hasil),
+                      padaSaatDipilih: (hasil) {
+                        setState(() {
+                          _pilihanDurasi = hasil;
+                        });
+                        
+                        // 3. JIKA DROPDOWN DIUBAH, MAKA PAKSA STATE DI DALAM BOTTOMSHEET IKUT DI-UPDATE
+                        if (_isSheetOpen && _updateHargaBottomSheet != null) {
+                          _updateHargaBottomSheet!(() {});
+                        }
+                      },
                     );
                   },
                   child: _buildFilterDropdown(Icons.hourglass_empty, 'Durasi:', _pilihanDurasi),
@@ -669,7 +760,7 @@ class _DetailBookingPageState extends State<DetailBookingPage> {
         ),
         const Padding(
           padding: EdgeInsets.all(16.0),
-          child: Text('Pilih Tanggal dan Waktu Online', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+          child: Text('Pilih Tanggal dan Waktu', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
         ),
         Container(
           height: 100,

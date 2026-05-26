@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:yomans_konseling/screens/pembayaran/payment_va.dart';
 
 void main() {
   runApp(const MyApp());
@@ -27,47 +28,31 @@ class PaymentMethodPage extends StatefulWidget {
 }
 
 class _PaymentMethodPageState extends State<PaymentMethodPage> {
-  // Variabel untuk menyimpan metode pembayaran yang dipilih
   String? _selectedMethod;
-
-  // Warna tema sesuai gambar
   final Color primaryGreen = const Color(0xFF2E6B33);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: primaryGreen,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () {
-            // Aksi tombol kembali
-          },
-        ),
-        title: const Text(
-          'Pilih Metode Pembayaran',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
         centerTitle: true,
+        backgroundColor: const Color(0xFF2E6B33),
+        title: const Text("Pilih Metode Pembayaran", style: TextStyle(color: Colors.white)),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
       body: Stack(
         children: [
-          // 1. WATERMARK BACKGROUND (Logo di tengah latar belakang)
-          // Catatan: Ganti 'assets/logo_yomans.png' dengan path file logomu di pubspec.yaml
           Center(
             child: Opacity(
-              opacity: 0.15, // Mengatur transparansi watermark agar tipis
+              opacity: 0.15,
               child: Image.asset(
-                'assets/logo_yomans.png', 
+                'lib/assets/logo_yomans.png',
                 width: MediaQuery.of(context).size.width * 0.9,
                 fit: BoxFit.contain,
                 errorBuilder: (context, error, stackTrace) {
-                  // Fallback jika gambar asset belum dimasukkan
                   return const Text(
                     'YOMANS KONSELING\n(Watermark Background)',
                     textAlign: TextAlign.center,
@@ -81,94 +66,89 @@ class _PaymentMethodPageState extends State<PaymentMethodPage> {
               ),
             ),
           ),
-
-          // 2. KONTEN UTAMA (Scrollable)
           Column(
             children: [
               Expanded(
                 child: ListView(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   children: [
-                    // --- KATEGORI: TRANSFER BANK ---
                     _buildCategoryHeader('Transfer Bank', Icons.account_balance),
                     const SizedBox(height: 8),
                     _buildPaymentOption(
                       id: 'bca',
-                      logoPath: 'assets/logo_bca.png',
-                      labelText: 'BCA', 
+                      logoPath: 'lib/assets/logo-bca.jpg',
+                      labelText: 'BCA',
                     ),
                     const Divider(height: 1, thickness: 1),
                     _buildPaymentOption(
                       id: 'mandiri',
-                      logoPath: 'assets/logo_mandiri.png',
+                      logoPath: 'lib/assets/logo-mandiri.png',
                       labelText: 'mandiri',
                     ),
                     const Divider(height: 1, thickness: 1),
                     _buildPaymentOption(
                       id: 'bri',
-                      logoPath: 'assets/logo_bri.png',
+                      logoPath: 'lib/assets/logo-bri.jpg',
                       labelText: 'BRI',
                     ),
                     const Divider(height: 1, thickness: 1),
-
                     const SizedBox(height: 32),
-
-                    // --- KATEGORI: DOMPET DIGITAL ---
                     _buildCategoryHeader('Dompet Digital', Icons.account_balance_wallet),
                     const SizedBox(height: 8),
                     _buildPaymentOption(
                       id: 'ovo',
-                      logoPath: 'assets/logo_ovo.png',
+                      logoPath: 'lib/assets/logo-ovo.jpg',
                       labelText: 'OVO',
                     ),
                     const Divider(height: 1, thickness: 1),
                     _buildPaymentOption(
                       id: 'gopay',
-                      logoPath: 'assets/logo_gopay.png',
+                      logoPath: 'lib/assets/logo-gopay.png',
                       labelText: 'gopay',
                     ),
                     const Divider(height: 1, thickness: 1),
                     _buildPaymentOption(
                       id: 'dana',
-                      logoPath: 'assets/logo_dana.png',
+                      logoPath: 'lib/assets/logo-dana.png',
                       labelText: 'DANA',
                     ),
                     const Divider(height: 1, thickness: 1),
                   ],
                 ),
               ),
-
-              // 3. TOMBOL BAYAR (Tetap di posisi bawah)
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
-                child: SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: ElevatedButton(
-                    onPressed: _selectedMethod == null 
-                        ? null 
-                        : () {
-                            // Aksi ketika tombol bayar ditekan
-                          },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryGreen,
-                      disabledBackgroundColor: primaryGreen.withOpacity(0.5),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24), // Sudut melengkung oval
-                      ),
-                      elevation: 0,
-                    ),
-                    child: const Text(
-                      'Bayar',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
+  padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
+  child: SizedBox(
+    width: double.infinity,
+    height: 48,
+    child: ElevatedButton(
+      // Logika tombol: null jika belum ada metode yang dipilih, 
+      // melakukan navigasi jika sudah ada metode yang dipilih.
+      onPressed: _selectedMethod == null
+          ? null
+          : () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => PaymentPage(metode: _selectedMethod!),
                 ),
-              ),
+              );
+            },
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFF2E6B33),
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+        ),
+        elevation: 0,
+      ),
+      child: const Text(
+        'Bayar',
+        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      ),
+    ),
+  ),
+),
             ],
           ),
         ],
@@ -176,7 +156,6 @@ class _PaymentMethodPageState extends State<PaymentMethodPage> {
     );
   }
 
-  // Widget untuk membuat Header Kategori (Transfer Bank / Dompet Digital)
   Widget _buildCategoryHeader(String title, IconData icon) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
@@ -197,11 +176,10 @@ class _PaymentMethodPageState extends State<PaymentMethodPage> {
     );
   }
 
-  // Widget untuk membuat Baris Opsi Pembayaran lengkap dengan Radio Button
   Widget _buildPaymentOption({
-    required String id, 
-    required String logoPath, 
-    required String labelText
+    required String id,
+    required String logoPath,
+    required String labelText,
   }) {
     return InkWell(
       onTap: () {
@@ -214,7 +192,6 @@ class _PaymentMethodPageState extends State<PaymentMethodPage> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            // Sisi Kiri: Logo Bank / E-Wallet
             Container(
               height: 32,
               width: 100,
@@ -223,23 +200,19 @@ class _PaymentMethodPageState extends State<PaymentMethodPage> {
                 logoPath,
                 fit: BoxFit.contain,
                 errorBuilder: (context, error, stackTrace) {
-                  // Fallback teks jika file aset gambar belum tersedia
                   return Text(
                     labelText,
                     style: const TextStyle(
-                      fontSize: 16, 
+                      fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: Colors.black87
+                      color: Colors.black87,
                     ),
                   );
                 },
               ),
             ),
-            // Sisi Kanan: Radio Button Bulat
             Theme(
-              data: ThemeData(
-                unselectedWidgetColor: Colors.black54,
-              ),
+              data: ThemeData(unselectedWidgetColor: Colors.black54),
               child: Radio<String>(
                 value: id,
                 groupValue: _selectedMethod,

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 class DokterProvider with ChangeNotifier {
   List<Map<String, dynamic>> _listDokter = [
@@ -44,3 +46,31 @@ class DokterProvider with ChangeNotifier {
     return true;
   }
 }
+// Method baru untuk menembak API Flask Booking
+  Future<Map<String, dynamic>> buatBooking({
+    required int userId,
+    required int dokterId,
+    required String tanggal,
+    required String keluhan,
+    required int duration,
+  }) async {
+    final String url = 'http://10.0.2.2:5000/api/booking'; // Gunakan 10.0.2.2 jika testing via Emulator Android
+
+    try {
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "user_id": userId,
+          "dokter_id": dokterId,
+          "tanggal": tanggal,
+          "keluhan": keluhan,
+          "duration": duration, // <-- Mengirim durasi dinamis yang dipilih user dari UI
+        }),
+      );
+
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {"status": "error", "message": e.toString()};
+    }
+  }
