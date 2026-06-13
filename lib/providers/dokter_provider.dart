@@ -1,76 +1,289 @@
-import 'package:flutter/material.dart';
 import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 class DokterProvider with ChangeNotifier {
+
+  // ================= BASE URL =================
+  // Untuk Flutter Web Chrome gunakan localhost
+  final String _baseUrl =
+      'http://127.0.0.1:5000/api';
+
+  // ================= DATA AWAL =================
   List<Map<String, dynamic>> _listDokter = [
     {
       "id": 1,
       "nama": "Ira Febriana M.Psi.,Psikolog",
-      "tags": ["Keluarga", "Kecemasan", "Percintaan"],
+      "tags": [
+        "Keluarga",
+        "Kecemasan",
+        "Percintaan"
+      ],
       "jadwal": "Hari ini, 18.00 WIB",
-      "image_url": "lib/assets/ira1.png"
+      "image_url": "lib/assets/ira1.png",
+      "harga": 150000
     },
     {
       "id": 2,
       "nama": "Lil Roosse K.Ing.,Petarunkx",
-      "tags": ["Keluarga", "Kecemasan", "Perkelahian"],
+      "tags": [
+        "Keluarga",
+        "Kecemasan",
+        "Perkelahian"
+      ],
       "jadwal": "Hari ini, 19.00 WIB",
-      "image_url": "lib/assets/gue1.png"
+      "image_url": "lib/assets/gue1.png",
+      "harga": 120000
     },
     {
       "id": 3,
       "nama": "Teguh B.K., M.Psi",
-      "tags": ["Keluarga", "Kecemasan"],
+      "tags": [
+        "Keluarga",
+        "Kecemasan"
+      ],
       "jadwal": "Besok, 10.00 WIB",
-      "image_url": "lib/assets/teguh.png"
+      "image_url": "lib/assets/teguh.png",
+      "harga": 100000
     },
   ];
 
-  List<Map<String, dynamic>> get listDokter => _listDokter;
+  List<Map<String, dynamic>> get listDokter =>
+      _listDokter;
 
+  // ================= FETCH DATA =================
   Future<void> fetchDokter() async {
-    // Dipanggil di home, biarkan kosong dulu karena menggunakan data awal di atas
+
+    final String url =
+        '$_baseUrl/dokter';
+
+    try {
+
+      final response =
+          await http.get(
+        Uri.parse(url),
+      );
+
+      print(
+          "FETCH STATUS: ${response.statusCode}");
+
+      print(
+          "FETCH BODY: ${response.body}");
+
+      if (response.statusCode == 200) {
+
+        final data =
+            jsonDecode(response.body);
+
+        if (data['status'] ==
+            'success') {
+
+          List<Map<String, dynamic>>
+              dataDariDatabase =
+              List<Map<String, dynamic>>
+                  .from(data['data']);
+
+          _listDokter =
+              dataDariDatabase;
+
+          notifyListeners();
+        }
+      }
+    } catch (e) {
+
+      print(
+        "Gagal fetch dokter: $e",
+      );
+    }
   }
 
-  Future<bool> tambahDokter(Map<String, dynamic> dokterBaru) async {
-    dokterBaru['id'] = _listDokter.length + 1; 
-    _listDokter.add(dokterBaru);
-    notifyListeners();
-    return true;
+  // ================= TAMBAH DOKTER =================
+  Future<bool> tambahDokter(
+    Map<String, dynamic> dokterBaru,
+  ) async {
+
+    final String url =
+        '$_baseUrl/admin/dokter';
+
+    try {
+
+      var request =
+          http.MultipartRequest(
+        'POST',
+        Uri.parse(url),
+      );
+
+      // ================= FIELD =================
+      request.fields['nama'] =
+          dokterBaru["nama"]
+              .toString();
+
+      request.fields['spesialis'] =
+          dokterBaru["spesialis"]
+              .toString();
+
+      request.fields['harga'] =
+          dokterBaru["harga"]
+              .toString();
+
+      // ================= FOTO WEB =================
+      if (dokterBaru["imageBytes"] !=
+              null &&
+          dokterBaru["imageName"] !=
+              null) {
+
+        Uint8List bytes =
+            dokterBaru["imageBytes"];
+
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'foto',
+            bytes,
+            filename:
+                dokterBaru[
+                    "imageName"],
+          ),
+        );
+
+        print(
+          "Foto berhasil dimasukkan multipart",
+        );
+      } else {
+
+        print(
+          "Foto tidak ditemukan",
+        );
+      }
+
+      // ================= SEND =================
+      var streamedResponse =
+          await request.send();
+
+      var response =
+          await http.Response
+              .fromStream(
+        streamedResponse,
+      );
+
+      print(
+        "STATUS CODE: ${response.statusCode}",
+      );
+
+      print(
+        "BODY RESPONSE: ${response.body}",
+      );
+
+      // ================= SUCCESS =================
+      if (response.statusCode ==
+          201) {
+
+        await fetchDokter();
+
+        return true;
+      }
+
+      return false;
+
+    } catch (e) {
+
+      print(
+        "ERROR TAMBAH DOKTER: $e",
+      );
+
+      return false;
+    }
   }
 
-  Future<bool> hapusDokter(int id) async {
-    _listDokter.removeWhere((dokter) => dokter['id'] == id);
-    notifyListeners();
-    return true;
+  // ================= HAPUS DOKTER =================
+  Future<bool> hapusDokter(
+    int id,
+  ) async {
+
+    final String url =
+        '$_baseUrl/admin/dokter/$id';
+
+    try {
+
+      final response =
+          await http.delete(
+        Uri.parse(url),
+      );
+
+      final result =
+          jsonDecode(response.body);
+
+      if (response.statusCode ==
+              200 &&
+          result['status'] ==
+              'success') {
+
+        _listDokter.removeWhere(
+          (dokter) =>
+              dokter['id'] == id,
+        );
+
+        notifyListeners();
+
+        return true;
+      }
+
+    } catch (e) {
+
+      print(
+        "ERROR HAPUS DOKTER: $e",
+      );
+    }
+
+    return false;
   }
-}
-// Method baru untuk menembak API Flask Booking
-  Future<Map<String, dynamic>> buatBooking({
+
+  // ================= BOOKING =================
+  Future<Map<String, dynamic>>
+      buatBooking({
+
     required int userId,
     required int dokterId,
     required String tanggal,
     required String keluhan,
     required int duration,
+
   }) async {
-    final String url = 'http://10.0.2.2:5000/api/booking'; // Gunakan 10.0.2.2 jika testing via Emulator Android
+
+    final String url =
+        '$_baseUrl/booking';
 
     try {
-      final response = await http.post(
+
+      final response =
+          await http.post(
         Uri.parse(url),
-        headers: {"Content-Type": "application/json"},
+
+        headers: {
+          "Content-Type":
+              "application/json"
+        },
+
         body: jsonEncode({
           "user_id": userId,
           "dokter_id": dokterId,
           "tanggal": tanggal,
           "keluhan": keluhan,
-          "duration": duration, // <-- Mengirim durasi dinamis yang dipilih user dari UI
+          "duration": duration,
         }),
       );
 
-      return jsonDecode(response.body);
+      return jsonDecode(
+        response.body,
+      );
+
     } catch (e) {
-      return {"status": "error", "message": e.toString()};
+
+      return {
+        "status": "error",
+        "message": e.toString(),
+      };
     }
   }
+}

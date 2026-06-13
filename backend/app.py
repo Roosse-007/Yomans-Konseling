@@ -6,6 +6,7 @@ import pandas as pd
 import numpy as np
 import joblib
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 from flask_mail import Mail, Message
 import random
 import os
@@ -19,6 +20,19 @@ from flask_jwt_extended import (
 load_dotenv()
 
 app = Flask(__name__)
+
+# Konfigurasi folder tempat menyimpan foto psikolog
+UPLOAD_FOLDER = 'uploads'
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+# Membuat folder uploads otomatis jika belum ada
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+# Pastikan Flask mengizinkan akses statis ke folder uploads agar foto bisa dipanggil lewat URL
+@app.route('/uploads/<filename>')
+def upload_file(filename):
+    from flask import send_from_directory
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 # ================= JWT CONFIG =================
 app.config["JWT_SECRET_KEY"] = "SECRET_KEY_KAMU"
@@ -930,7 +944,7 @@ def get_history():
         print("GET HISTORY ERROR:", e)
         return jsonify({"status": "error", "message": str(e)}), 500
 
-
+ 
 @app.route("/api/submit-review", methods=["POST"])
 def submit_review():
     try:
@@ -982,7 +996,215 @@ def cancel_booking():
         print("CANCEL BOOKING ERROR:", e)
         return jsonify({"status": "error", "message": str(e)}), 500
     
-    # ================= RUN SERVER =================
+# ============================================================
+# ================= FITUR CRUD DASHBOARD ADMIN ================
+# ============================================================
+
+# ----------------- 1. CRUD DOKTER -----------------
+
+@app.route("/api/admin/dokter", methods=["POST"])
+def admin_tambah_dokter():
+
+    try:
+
+        nama = request.form.get("nama")
+
+        # FLUTTER KIRIM spesialis
+        # TAPI DATABASE SIMPAN KE tags
+        tags = request.form.get("spesialis")
+
+        harga = request.form.get("harga")
+
+        if not nama or not tags or not harga:
+
+            return jsonify({
+                "status": "error",
+                "message": "Data tidak lengkap"
+            }), 400
+
+        foto = ""
+
+        # ================= FOTO =================
+        if 'foto' in request.files:
+
+            file = request.files['foto']
+
+            if file.filename != '':
+
+                filename = secure_filename(
+                    file.filename
+                )
+
+                filepath = os.path.join(
+                    app.config['UPLOAD_FOLDER'],
+                    filename
+                )
+
+                file.save(filepath)
+
+                foto = f"http://127.0.0.1:5000/uploads/{filename}"
+
+        # ================= DATABASE =================
+        db = get_db()
+        cur = db.cursor()
+
+        cur.execute(
+            """
+            INSERT INTO dokter
+            (
+                nama,
+                tags,
+                harga_diskon,
+                image_url
+            )
+            VALUES (%s, %s, %s, %s)
+            """,
+            (
+                nama,
+                tags,
+                harga,
+                foto
+            )
+        )
+
+        db.commit()
+        cur.close()
+
+        return jsonify({
+            "status": "success",
+            "message": "Dokter berhasil ditambahkan"
+        }), 201
+
+    except Exception as e:
+
+        print(str(e))
+
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
+
+# ----------------- 2. CRUD BERITA -----------------
+
+@app.route("/api/admin/berita", methods=["POST"])
+def admin_tambah_berita():
+    try:
+        data = request.get_json(silent=True)
+        judul = data.get("judul")
+        isi = data.get("isi")
+        sumber = data.get("sumber")
+        link_sumber = data.get("link_sumber")
+
+        if not judul or not isi:
+            return jsonify({"status": "error", "message": "Judul dan isi berita wajib diisi"}), 400
+
+        db = get_db()
+        cur = db.cursor()
+        cur.execute(
+            "INSERT INTO berita (judul, isi, sumber, link_sumber) VALUES (%s, %s, %s, %s)",
+            (judul, isi, sumber, link_sumber)
+        )
+        db.commit()
+        cur.close()
+        return jsonify({"status": "success", "message": "Berita berhasil ditambahkan"}), 201
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route("/api/admin/berita/<int:id>", methods=["PUT"])
+def admin_edit_berita(id):
+    try:
+        data = request.get_json(silent=True)
+        judul = data.get("judul")
+        isi = data.get("isi")
+        sumber = data.get("sumber")
+        link_sumber = data.get("link_sumber")
+
+        db = get_db()
+        cur = db.cursor()
+        cur.execute(
+            "UPDATE berita SET judul=%s, isi=%s, sumber=%s, link_sumber=%s WHERE id=%s",
+            (judul, isi, sumber, link_sumber, id)
+        )
+        db.commit()
+        cur.close()
+        return jsonify({"status": "success", "message": "Berita berhasil diperbarui"}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route("/api/admin/berita/<int:id>", methods=["DELETE"])
+def admin_hapus_berita(id):
+    try:
+        db = get_db()
+        cur = db.cursor()
+        cur.execute("DELETE FROM berita WHERE id=%s", (id,))
+        db.commit()
+        cur.close()
+        return jsonify({"status": "success", "message": "Berita berhasil dihapus"}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+# ----------------- 3. CRUD EDUKASI -----------------
+
+@app.route("/api/admin/edukasi", methods=["POST"])
+def admin_tambah_edukasi():
+    try:
+        data = request.get_json(silent=True)
+        judul = data.get("judul")
+        isi = data.get("isi")
+        sumber = data.get("sumber")
+        link_sumber = data.get("link_sumber")
+
+        if not judul or not isi:
+            return jsonify({"status": "error", "message": "Judul dan isi edukasi wajib diisi"}), 400
+
+        db = get_db()
+        cur = db.cursor()
+        cur.execute(
+            "INSERT INTO edukasi (judul, isi, sumber, link_sumber) VALUES (%s, %s, %s, %s)",
+            (judul, isi, sumber, link_sumber)
+        )
+        db.commit()
+        cur.close()
+        return jsonify({"status": "success", "message": "Edukasi berhasil ditambahkan"}), 201
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route("/api/admin/edukasi/<int:id>", methods=["PUT"])
+def admin_edit_edukasi(id):
+    try:
+        data = request.get_json(silent=True)
+        judul = data.get("judul")
+        isi = data.get("isi")
+        sumber = data.get("sumber")
+        link_sumber = data.get("link_sumber")
+
+        db = get_db()
+        cur = db.cursor()
+        cur.execute(
+            "UPDATE edukasi SET judul=%s, isi=%s, sumber=%s, link_sumber=%s WHERE id=%s",
+            (judul, isi, sumber, link_sumber, id)
+        )
+        db.commit()
+        cur.close()
+        return jsonify({"status": "success", "message": "Edukasi berhasil diperbarui"}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route("/api/admin/edukasi/<int:id>", methods=["DELETE"])
+def admin_hapus_edukasi(id):
+    try:
+        db = get_db()
+        cur = db.cursor()
+        cur.execute("DELETE FROM edukasi WHERE id=%s", (id,))
+        db.commit()
+        cur.close()
+        return jsonify({"status": "success", "message": "Edukasi berhasil dihapus"}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+    
+# ================= RUN SERVER =================
 if __name__ == "__main__":
     app.run(
         debug=True,
