@@ -20,10 +20,15 @@ from flask_jwt_extended import (
 load_dotenv()
 
 app = Flask(__name__)
-
-# Konfigurasi folder tempat menyimpan foto psikolog
-UPLOAD_FOLDER = 'uploads'
+CORS(app)
+# Ambil jalur direktori tempat file app.py ini berada
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+# Membuat folder 'uploads' secara otomatis jika belum ada di laptop
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
 
 # Membuat folder uploads otomatis jika belum ada
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -1014,6 +1019,11 @@ def admin_tambah_dokter():
         tags = request.form.get("spesialis")
 
         harga = request.form.get("harga")
+        
+        print("REQUEST FORM:", request.form)
+        print("NAMA:", nama)
+        print("TAGS:", tags)
+        print("HARGA:", harga)
 
         if not nama or not tags or not harga:
 
@@ -1204,6 +1214,49 @@ def admin_hapus_edukasi(id):
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
     
+@app.route('/uploads/<filename>')
+def tampilkan_foto_dari_folder(filename):
+    from flask import send_from_directory
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
+
+# ==================== ROUTE HAPUS DOKTER ====================
+@app.route('/api/admin/dokter/<int:id>', methods=['DELETE'])
+def delete_dokter(id):
+    try:
+        db = get_db()
+        cursor = db.cursor()
+
+        # Ambil foto terlebih dahulu
+        cursor.execute(
+            "SELECT image_url FROM dokter WHERE id = %s",
+            (id,)
+        )
+
+        result = cursor.fetchone()
+
+        # Hapus data dokter
+        cursor.execute(
+            "DELETE FROM dokter WHERE id = %s",
+            (id,)
+        )
+
+        db.commit()
+
+        cursor.close()
+
+        return jsonify({
+            "status": "success",
+            "message": "Dokter berhasil dihapus"
+        }), 200
+
+    except Exception as e:
+        print("ERROR HAPUS DOKTER:", str(e))
+
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
 # ================= RUN SERVER =================
 if __name__ == "__main__":
     app.run(
