@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:yomans_konseling/providers/dokter_provider.dart';
@@ -79,15 +81,18 @@ class _DaftarPsikologAdminPageState
               itemBuilder: (context, index) {
                 final dokter = listDokter[index];
 
-                // ================= AMBIL TAG =================
-                List<dynamic> tags = [];
+                /// ================= AMBIL TAG =================
+List<String> tags = [];
 
-                if (dokter['tags'] is List) {
-                  tags = dokter['tags'];
-                } else if (dokter['spesialis'] != null) {
-                  tags = (dokter['spesialis'] as String)
-                      .split(', ');
-                }
+if (dokter['tags'] != null &&
+    dokter['tags'].toString().isNotEmpty &&
+    dokter['tags'].toString().toLowerCase() != "null") {
+  tags = dokter['tags']
+      .toString()
+      .split(',')
+      .map((e) => e.trim())
+      .toList();
+}
 
                 return Container(
                   margin: const EdgeInsets.only(
@@ -341,49 +346,36 @@ class _DaftarPsikologAdminPageState
   }
 
   // ================= BUILD IMAGE =================
-  Widget _buildImage(
-    Map<String, dynamic> dokter,
-  ) {
-    // FOTO DARI API
-    if (dokter['foto'] != null &&
-        dokter['foto']
-            .toString()
-            .isNotEmpty) {
-      return Image.network(
-        dokter['foto'],
+  Widget _buildImage(Map<String, dynamic> dokter) {
+  print("IMAGE URL: ${dokter['image_url']}");
 
-        fit: BoxFit.cover,
+  if (dokter['image_url'] != null &&
+      dokter['image_url'].toString().isNotEmpty) {
+    return Image.network(
+      dokter['image_url'].toString(),
+      fit: BoxFit.contain,
+      errorBuilder: (context, error, stackTrace) {
+        print("ERROR GAMBAR: $error");
 
-        errorBuilder:
-            (context, error, stackTrace) {
-          return const Icon(
+        return const Center(
+          child: Icon(
             Icons.person,
             size: 40,
             color: Colors.grey,
-          );
-        },
-      );
-    }
-
-    // FOTO ASSET LOKAL
-    if (dokter['image_url'] != null &&
-        dokter['image_url']
-            .toString()
-            .startsWith('lib/')) {
-      return Image.asset(
-        dokter['image_url'],
-        fit: BoxFit.cover,
-      );
-    }
-
-    // DEFAULT
-    return const Icon(
-      Icons.person,
-      size: 40,
-      color: Colors.grey,
+          ),
+        );
+      },
     );
   }
 
+  return const Center(
+    child: Icon(
+      Icons.person,
+      size: 40,
+      color: Colors.grey,
+    ),
+  );
+}
   // ================= DIALOG HAPUS =================
   void _tampilkanDialogHapus(
     BuildContext context,
@@ -430,6 +422,64 @@ class _DaftarPsikologAdminPageState
           ),
         ],
       ),
+    );
+  }
+}
+
+Widget _buildImage(Map<String, dynamic> dokter) {
+  final String? fotoPath = dokter['image_url']?.toString();
+
+  // 1. KONDISI JIKA FOTO KOSONG
+  if (fotoPath == null || fotoPath.isEmpty) {
+    return const Icon(
+      Icons.person,
+      size: 40,
+      color: Color(0xFFA0AEC0),
+    );
+  }
+
+  // 2. KONDISI JIKA BERUPA URL INTERNET (Hasil upload dari Flask)
+  if (fotoPath.startsWith('http')) {
+    final String webSafeUrl = fotoPath.replaceAll('http://127.0.0.1:', 'http://localhost:');
+
+    // Menggunakan HtmlElementView agar browser Chrome merender gambar secara native (Abaikan proteksi CanvasKit)
+    // ignore: undefined_patched_instance
+    return SizedBox(
+      width: 75,
+      height: 75,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.network(
+          webSafeUrl,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            print("Gagal memuat gambar: $error");
+            return const Icon(Icons.person, size: 40, color: Color(0xFFA0AEC0));
+          },
+        ),
+      ),
+    );
+  }
+  
+  // 3. KONDISI JIKA BERUPA ASET LOKAL (lib/assets/...)
+  else if (fotoPath.startsWith('lib/')) {
+    return Image.asset(
+      fotoPath,
+      fit: BoxFit.cover,
+      width: 75,
+      height: 75,
+      errorBuilder: (context, error, stackTrace) {
+        return const Icon(Icons.broken_image_rounded, size: 35, color: Colors.redAccent);
+      },
+    );
+  } 
+  
+  // 4. KONDISI CADANGAN JIKA EROR / PLATFORM WEB LOKAL
+  else {
+    return const Icon(
+      Icons.person,
+      size: 40,
+      color: Color(0xFFA0AEC0),
     );
   }
 }

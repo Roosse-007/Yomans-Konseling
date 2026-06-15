@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:yomans_konseling/providers/auth_provider.dart';
 import 'package:yomans_konseling/screens/admin/daftarPsikolog.dart';
+import 'package:yomans_konseling/screens/auth/login.dart';
 
 void main() {
   runApp(const MyApp());
@@ -257,15 +260,29 @@ class AdminDashboard extends StatelessWidget {
                       Container(
                         margin: const EdgeInsets.only(top: 28),
                         child: InkWell(
-                          onTap: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Berhasil keluar dari Admin Panel'),
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
-                            Navigator.pop(context); 
-                          },
+                          onTap: () async {
+  await Provider.of<AuthProvider>(
+    context,
+    listen: false,
+  ).logout();
+
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text(
+        'Berhasil keluar dari Admin Panel',
+      ),
+      behavior: SnackBarBehavior.floating,
+    ),
+  );
+
+  Navigator.pushAndRemoveUntil(
+    context,
+    MaterialPageRoute(
+      builder: (context) => const LoginPage(),
+    ),
+    (route) => false,
+  );
+},
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                             decoration: BoxDecoration(

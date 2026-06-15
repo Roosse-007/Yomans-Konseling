@@ -182,11 +182,12 @@ class _TambahPsikologPageState
                                   24,
                                 ),
 
-                                child: Image.memory(
-                                  _imageBytes!,
-                                  fit: BoxFit
-                                      .cover,
-                                ),
+                                child: FittedBox(
+  fit: BoxFit.contain,
+  child: Image.memory(
+    _imageBytes!,
+  ),
+),
                               )
                             : Column(
                                 mainAxisAlignment:
