@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:yomans_konseling/screens/admin/daftarPsikolog.dart';
+import 'package:yomans_konseling/screens/berita/admin_berita_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -342,13 +343,18 @@ class AdminDashboard extends StatelessWidget {
                                 // ==========================================
                                 // SECTION 2: KELOLA BERITA & EDUKASI
                                 // ==========================================
-                                _buildMainSectionHeader(
-                                  title: 'Kelola Berita & Edukasi',
-                                  subtitle: 'Artikel-Artikel',
-                                  buttonText: 'Buka Daftar Berita',
-                                  iconData: Icons.menu_book,
-                                  onHeaderButtonTap: () {},
-                                ),
+                             _buildMainSectionHeader(
+                                title: 'Kelola Berita & Edukasi',
+                                subtitle: 'Artikel-Artikel',
+                                buttonText: 'Buka Daftar Berita',
+                                iconData: Icons.menu_book,
+                                onHeaderButtonTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(builder: (context) => const AdminBeritaScreen()),
+                                  );
+                                },
+                              ),
                                 
 
                                 // ==========================================
