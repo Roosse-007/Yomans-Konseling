@@ -108,6 +108,8 @@ class _TambahPsikologPageState extends State<TambahPsikologPage> {
             children: [
               // ================= FOTO =================
               Center(
+                child: MouseRegion(
+    cursor: SystemMouseCursors.click,
                 child: GestureDetector(
                   onTap: _pickImage,
                   child: Stack(
@@ -176,6 +178,7 @@ class _TambahPsikologPageState extends State<TambahPsikologPage> {
                   ),
                 ),
               ),
+            ),
 
               const SizedBox(height: 30),
 
