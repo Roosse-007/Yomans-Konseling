@@ -39,27 +39,99 @@ class DokterProvider with ChangeNotifier {
 
   List<Map<String, dynamic>> get listDokter => _listDokter;
 
-  // ================= FETCH DATA =================
+// ================= FETCH DATA (FIXED TOTAL) =================
   Future<void> fetchDokter() async {
     final String url = '$_baseUrl/dokter';
     try {
       final response = await http.get(Uri.parse(url));
 
-      print("FETCH STATUS: ${response.statusCode}");
-      print("FETCH BODY: ${response.body}");
+      print("--- DEBUG AMBIL DATA ---");
+      print("BODY RESPONS SERVER: ${response.body}");
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['status'] == 'success') {
-          List<Map<String, dynamic>> dataDariDatabase =
-              List<Map<String, dynamic>>.from(data['data']);
+        final decodedData = jsonDecode(response.body);
+        List<dynamic> rawData = [];
 
-          _listDokter = dataDariDatabase;
-          notifyListeners();
+        // 1. Jika respons langsung berbentuk List []
+        if (decodedData is List) {
+          rawData = decodedData;
+        } 
+        // 2. Jika respons berbentuk Map {} dan memiliki key 'data'
+        else if (decodedData is Map && decodedData.containsKey('data')) {
+          rawData = decodedData['data'] ?? [];
+        } 
+        // 3. JIKA TERNYATA MEREK RELEASING REPSONS SEPERTI LOG ANDA (Hanya info sukses, bukan data)
+        else if (decodedData is Map && decodedData['status'] == 'success' && !decodedData.containsKey('data')) {
+          print("⚠️ PERINGATAN: Endpoint API Anda mengembalikan status sukses, tapi TIDAK ada data array dokternya!");
+          return; // Hentikan di sini agar tidak crash mengecek data kosong
         }
+
+        List<Map<String, dynamic>> dataDariDatabase = rawData.map((dokterRaw) {
+          Map<String, dynamic> dokter = Map<String, dynamic>.from(dokterRaw);
+
+          String imgUrl = dokter['image_url'] ?? '';
+          dokter['is_local_asset'] = !imgUrl.startsWith('http');
+          dokter['image_url'] = imgUrl;
+
+          // --- Normalisasi Tags ---
+          List<String> parsedTags = [];
+          if (dokter['tags'] != null && dokter['tags'].toString() != 'null') {
+            var rawTags = dokter['tags'];
+            if (rawTags is List) {
+              parsedTags = List<String>.from(rawTags);
+            } else if (rawTags is String) {
+              String tagsString = rawTags.trim();
+              if (tagsString.startsWith('[') && tagsString.endsWith(']')) {
+                tagsString = tagsString.replaceAll('[', '').replaceAll(']', '').replaceAll('"', '').replaceAll("'", "");
+              }
+              parsedTags = tagsString.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+            }
+          }
+          
+          dokter['tags'] = parsedTags.isEmpty ? ['Umum'] : parsedTags;
+          dokter['jadwal'] = dokter['jadwal'] ?? 'Belum ada jadwal';
+
+// =====================
+// NORMALISASI HARGA
+// =====================
+
+final int hargaAwal =
+    double.tryParse(dokter['harga_awal'].toString())?.toInt() ?? 0;
+
+final int hargaDiskon =
+    double.tryParse(dokter['harga_diskon'].toString())?.toInt() ?? 0;
+
+// Simpan kembali ke map
+dokter['harga_awal'] = hargaAwal;
+dokter['harga_diskon'] = hargaDiskon;
+
+// =====================
+// HITUNG DISKON OTOMATIS
+// =====================
+
+int diskon = 0;
+
+if (hargaAwal > 0 && hargaDiskon > 0) {
+  diskon =
+      (((hargaAwal - hargaDiskon) / hargaAwal) * 100).round();
+}
+
+dokter['diskon'] = diskon;
+
+print("DEBUG DOKTER:");
+print(dokter);
+
+          return dokter;
+        }).toList();
+
+        _listDokter = dataDariDatabase;
+        notifyListeners();
+        print("BERHASIL: ${_listDokter.length} dokter dimuat.");
+      } else {
+        print("Server error dengan kode status: ${response.statusCode}");
       }
     } catch (e) {
-      print("Gagal fetch dokter: $e");
+      print("Gagal fetch dokter karena format salah: $e");
     }
   }
 
@@ -70,19 +142,24 @@ class DokterProvider with ChangeNotifier {
     try {
       var request = http.MultipartRequest('POST', Uri.parse(url));
 
-      // ================= FIELD TEKS =================
       request.fields['nama'] = dokterBaru["nama"].toString();
-      request.fields['spesialis'] = dokterBaru["spesialis"].toString();
-      request.fields['harga'] = dokterBaru["harga"].toString();
+      request.fields['tags'] = dokterBaru["tags"].toString(); 
+      request.fields['harga_awal'] =
+    dokterBaru["harga_awal"].toString();
+
+request.fields['harga_diskon'] =
+    dokterBaru["harga_diskon"].toString();
+      request.fields['jadwal'] = dokterBaru["jadwal"].toString();
+      request.fields['harga_awal'] = dokterBaru["harga_awal"].toString();
+      request.fields['durasi'] = dokterBaru["durasi"].toString();
 
       // ================= FOTO KHUSUS WEB =================
-      // Di Web, kita menangkap data gambar via bytes memori, bukan via path file lokal.
       if (dokterBaru["imageBytes"] != null && dokterBaru["imageName"] != null) {
         Uint8List bytes = dokterBaru["imageBytes"];
 
         request.files.add(
           http.MultipartFile.fromBytes(
-            'foto', // Harus sama dengan key di Flask kamu
+            'foto', 
             bytes,
             filename: dokterBaru["imageName"],
           ),
@@ -101,7 +178,7 @@ class DokterProvider with ChangeNotifier {
 
       // ================= SUCCESS =================
       if (response.statusCode == 201) {
-        await fetchDokter(); // Sinkronisasi ulang data setelah berhasil menyimpan
+        await fetchDokter(); 
         return true;
       }
       return false;

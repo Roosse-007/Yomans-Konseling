@@ -5,7 +5,6 @@ import 'package:yomans_konseling/screens/berita/informasi.dart';
 import 'package:yomans_konseling/screens/dokter/detail_booking.dart';
 import 'package:yomans_konseling/screens/halaman_akun/profile_screen.dart';
 import 'package:yomans_konseling/screens/home/home.dart';
-// Pastikan import ini sesuai dengan struktur file aplikasi Anda
 
 class PilihPsikologPage extends StatefulWidget {
   const PilihPsikologPage({super.key});
@@ -15,8 +14,28 @@ class PilihPsikologPage extends StatefulWidget {
 }
 
 class _PilihPsikologPageState extends State<PilihPsikologPage> {
-  // Karena halaman ini berada di menu "Beranda" atau indeks pertama, set awal ke 0
   int _currentIndex = 0; 
+
+@override
+  void initState() {
+    super.initState();
+
+    Future.microtask(() async {
+      await Provider.of<DokterProvider>(
+        context,
+        listen: false,
+      ).fetchDokter();
+
+      print("Jumlah dokter:");
+      print(
+        Provider.of<DokterProvider>(
+          context,
+          listen: false,
+        ).listDokter.length,
+      );
+    });
+  }
+  
 
   @override
   Widget build(BuildContext context) {
@@ -59,19 +78,48 @@ class _PilihPsikologPageState extends State<PilihPsikologPage> {
               itemBuilder: (context, index) {
                 final dokter = listDokter[index];
 
-                final int id = dokter['id'] ?? 0;
+                // Pengaman tipe data ID (mengantisipasi jika dari DB berupa int atau string)
+                final int id = dokter['id'] is int 
+                    ? dokter['id'] 
+                    : int.tryParse(dokter['id'].toString()) ?? 0;
+                    
                 final String nama = dokter['nama'] ?? 'Nama Psikolog';
                 final String imageUrl = dokter['image_url'] ?? '';
-                final List<String> tags = List<String>.from(dokter['tags'] ?? []);
                 final String jadwal = dokter['jadwal'] ?? 'Belum ada jadwal';
 
+                // ================= LOGIKA PENGAMAN TAGS (FIX DATA HAN SO-HEE) =================
+                List<String> tags = [];
+                if (dokter['tags'] != null && dokter['tags'].toString() != 'null') {
+                  if (dokter['tags'] is List) {
+                    tags = List<String>.from(dokter['tags']);
+                  } else if (dokter['tags'] is String) {
+                    String tagsRaw = dokter['tags'].toString().trim();
+                    
+                    if (tagsRaw.startsWith('[')) {
+                      tagsRaw = tagsRaw.replaceAll('[', '').replaceAll(']', '').replaceAll('"', '').replaceAll("'", "");
+                      tags = tagsRaw.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+                    } else {
+                      tags = tagsRaw.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+                    }
+                  }
+                }
+                
+                if (tags.isEmpty) {
+                  tags = ['Umum'];
+                }
+                // =============================================================================
+
                 return _DokterCard(
-                  id: id,
-                  nama: nama,
-                  imageUrl: imageUrl,
-                  tags: tags,
-                  jadwal: jadwal,
-                );
+                id: id,
+                nama: nama,
+                imageUrl: imageUrl,
+                tags: tags,
+                jadwal: jadwal,
+
+                hargaAwal: dokter['harga_awal'],
+                hargaDiskon: dokter['harga_diskon'],
+                diskon: dokter['diskon'],
+              );
               },
             ),
 
@@ -79,7 +127,7 @@ class _PilihPsikologPageState extends State<PilihPsikologPage> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: const Color(0xFF2E6A3F), // Hijau tua sesuai aset Anda
+        selectedItemColor: const Color(0xFF2E6A3F), 
         unselectedItemColor: Colors.grey,
         showUnselectedLabels: true,
         onTap: (index) {
@@ -87,12 +135,15 @@ class _PilihPsikologPageState extends State<PilihPsikologPage> {
             _currentIndex = index;
           });
           if (index == 0) {
-            // Jika butuh aksi kembali ke halaman beranda utama asal
-             Navigator.push(context, MaterialPageRoute(builder: (_) => HomePage()));
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            } else {
+              Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => HomePage()));
+            }
           } else if (index == 1) {
              Navigator.push(context, MaterialPageRoute(builder: (_) => Informasi()));
           } else if (index == 2) {
-             //Navigator.push(context, MaterialPageRoute(builder: (_) => HomePage())); 
+             // Sediakan navigasi halaman Riwayat di sini jika sudah ada
           } else if (index == 3) {
              Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen()));
           }
@@ -106,7 +157,6 @@ class _PilihPsikologPageState extends State<PilihPsikologPage> {
             icon: Icon(Icons.book_outlined), 
             label: "Informasi",
           ),
-          // Ikon keranjang diganti dengan ikon nota/riwayat transaksi (receipt) sesuai permintaan Anda
           BottomNavigationBarItem(
             icon: Icon(Icons.receipt_long_rounded), 
             label: "Riwayat",
@@ -128,12 +178,20 @@ class _DokterCard extends StatefulWidget {
   final List<String> tags;
   final String jadwal;
 
+  final dynamic hargaAwal;
+  final dynamic hargaDiskon;
+  final dynamic diskon;
+
   const _DokterCard({
     required this.id,
     required this.nama,
     required this.imageUrl,
     required this.tags,
     required this.jadwal,
+
+    required this.hargaAwal,
+    required this.hargaDiskon,
+    required this.diskon,
   });
 
   @override
@@ -154,23 +212,26 @@ class _DokterCardState extends State<_DokterCard> {
         onTapDown: (_) => setState(() => isPressed = true),
         onTapCancel: () => setState(() => isPressed = false),
         onTapUp: (_) {
-  setState(() => isPressed = false);
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (_) => DetailBookingPage(
-        dataDokter: {
-          'id': widget.id,
-          'nama': widget.nama,
-          'jadwal': widget.jadwal,
-          'image': widget.imageUrl,
-          'tags': widget.tags.cast<String>(),
-          // Tambahkan field lain yang dibutuhkan oleh DetailBookingPage di sini
+          setState(() => isPressed = false);
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => DetailBookingPage(
+            dataDokter: {
+              'id': widget.id,
+              'nama': widget.nama,
+              'jadwal': widget.jadwal,
+              'image': widget.imageUrl,
+              'tags': widget.tags,
+
+              'harga_awal': widget.hargaAwal,
+              'harga_diskon': widget.hargaDiskon,
+              'diskon': widget.diskon,
+                },
+              ),
+            ),
+          );
         },
-      ),
-    ),
-  );
-},
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
           margin: const EdgeInsets.only(bottom: 12),
@@ -260,64 +321,59 @@ class _DokterCardState extends State<_DokterCard> {
                     const SizedBox(height: 12),
 
                     // DETAIL JADWAL TERCEPAT
-// DETAIL JADWAL TERCEPAT
-Row(
-  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-  children: [
-    const Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          "Jadwal tercepat",
-          style: TextStyle(
-            fontSize: 10,
-            color: Colors.grey,
-          ),
-        ),
-      ],
-    ),
-    const SizedBox(width: 8),
-    
-    // ================= NAVIGASI TOMBOL JADWAL KE DETAIL BOOKING =================
-GestureDetector(
-  onTap: () {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => DetailBookingPage(
-          // Membungkus seluruh parameter ke dalam satu Map dataDokter
-          dataDokter: {
-            'id': widget.id, 
-            'nama': widget.nama,
-            'jadwal': widget.jadwal,
-            'image': widget.imageUrl,
-            'tags': widget.tags.cast<String>(), // Pastikan variabel image ini ada di kelas asalmu // Sediakan default jika datanya null
-          },
-        ),
-      ),
-    );
-  },
-  child: Container(
-    padding: const EdgeInsets.symmetric(
-      horizontal: 8,
-      vertical: 3,
-    ),
-    decoration: BoxDecoration(
-      color: const Color(0xFF1B5E20),
-      borderRadius: BorderRadius.circular(6),
-    ),
-    child: Text(
-      widget.jadwal,
-      style: const TextStyle(
-        color: Colors.white,
-        fontSize: 10,
-        fontWeight: FontWeight.bold,
-      ),
-    ),
-  ),
-),
-  ],
-),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            "Jadwal tercepat",
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        
+                        // ================= NAVIGASI TOMBOL JADWAL =================
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => DetailBookingPage(
+                                  dataDokter: {
+                                    'id': widget.id, 
+                                    'nama': widget.nama,
+                                    'jadwal': widget.jadwal,
+                                    'image': widget.imageUrl,
+                                    'tags': widget.tags,
+                                  },
+                                ),
+                              ),
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1B5E20),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              widget.jadwal,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),

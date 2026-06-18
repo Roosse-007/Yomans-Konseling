@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:yomans_konseling/screens/pembayaran/payment.dart';
+import 'package:yomans_konseling/utils/currency_helper.dart';
 
 class DetailBookingPage extends StatefulWidget {
   final Map<String, dynamic> dataDokter;
@@ -58,41 +59,90 @@ class _DetailBookingPageState extends State<DetailBookingPage> {
             // 2. SIMPAN STATE SETTER KE VARIABEL GLOBAL AGAR BISA DIAKSES DI LUAR
             _updateHargaBottomSheet = setSheetState;
 
-            final String imagePath = widget.dataDokter['image'] ?? '';
-            final bool isNetworkImage = imagePath.startsWith('http');
-            final String namaLengkap = widget.dataDokter['nama'] ?? '';
-            final String namaDepan = _getNamaDepan(namaLengkap);
-            final List<String> tags = _ambilTagsAman();
+final String imagePath = widget.dataDokter['image'] ?? '';
+final bool isNetworkImage = imagePath.startsWith('http');
+final String namaLengkap = widget.dataDokter['nama'] ?? '';
+final String namaDepan = _getNamaDepan(namaLengkap);
+final List<String> tags = _ambilTagsAman();
 
-            // LOGIKA HITUNG HARGA DINAMIS BERDASARKAN DURASI
-            String hargaCoret = 'Rp349.000';
-            String hargaFix = 'Rp249.000';
-            String diskonPersen = '-29%';
+// ===============================
+// DEBUG
+// ===============================
+print(widget.dataDokter);
+print("Harga Awal   : ${widget.dataDokter['harga_awal']}");
+print("Harga Diskon : ${widget.dataDokter['harga_diskon']}");
+print("Diskon       : ${widget.dataDokter['diskon']}");
 
-            if (widget.dataDokter['harga_diskon'] != null) {
-              hargaCoret = widget.dataDokter['harga_asli']?.toString() ?? '';
-              hargaFix = widget.dataDokter['harga_diskon']?.toString() ?? '';
-              diskonPersen = widget.dataDokter['diskon']?.toString() ?? '';
-            } else {
-              if (_pilihanDurasi == '30 Menit') {
-                hargaCoret = 'Rp199.000';
-                hargaFix = 'Rp149.000';
-                diskonPersen = '-25%';
-              } else if (_pilihanDurasi == '1 jam') {
-                hargaCoret = 'Rp349.000';
-                hargaFix = 'Rp249.000';
-                diskonPersen = '-29%';
-              } else if (_pilihanDurasi == '1.5 jam') {
-                hargaCoret = 'Rp499.000';
-                hargaFix = 'Rp349.000';
-                diskonPersen = '-30%';
-              } else if (_pilihanDurasi == '2 jam') {
-                hargaCoret = 'Rp599.000';
-                hargaFix = 'Rp449.000';
-                diskonPersen = '-25%';
-              }
-            }
+// ===============================
+// AMBIL HARGA DARI DATABASE
+// ===============================
+// ===============================
+// HARGA BERDASARKAN DATABASE
+// ===============================
 
+double hargaAwal =
+    double.tryParse(
+      widget.dataDokter['harga_awal'].toString(),
+    ) ??
+    0;
+
+double hargaDiskon =
+    double.tryParse(
+      widget.dataDokter['harga_diskon'].toString(),
+    ) ??
+    0;
+
+// ===============================
+// SESUAIKAN DENGAN DURASI
+// ===============================
+
+double faktor = 1;
+
+switch (_pilihanDurasi) {
+  case '30 Menit':
+    faktor = 0.5;
+    break;
+
+  case '1 jam':
+    faktor = 1;
+    break;
+
+  case '1.5 jam':
+    faktor = 1.5;
+    break;
+
+  case '2 jam':
+    faktor = 2;
+    break;
+}
+
+// Harga setelah dikalikan durasi
+final int hargaAwalFinal =
+    (hargaAwal * faktor).round();
+
+final int hargaDiskonFinal =
+    (hargaDiskon * faktor).round();
+
+// Format rupiah
+String hargaCoret =
+    rupiah(hargaAwalFinal);
+
+String hargaFix =
+    rupiah(hargaDiskonFinal);
+
+// Hitung persen diskon otomatis
+String diskonPersen = '';
+
+if (hargaAwalFinal > 0 &&
+    hargaDiskonFinal > 0) {
+  final int diskon =
+      (((hargaAwalFinal - hargaDiskonFinal) /
+                  hargaAwalFinal) *
+              100)
+          .round();
+
+  diskonPersen = '-$diskon%';
+}
             return Container(
               decoration: BoxDecoration(
                 color: Colors.white,

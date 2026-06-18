@@ -1005,78 +1005,73 @@ def cancel_booking():
 # ================= FITUR CRUD DASHBOARD ADMIN ================
 # ============================================================
 
-# ----------------- 1. CRUD DOKTER -----------------
+import json # Pastikan ini sudah di-import di bagian paling atas file app.py Anda
 
 @app.route("/api/admin/dokter", methods=["POST"])
 def admin_tambah_dokter():
-
     try:
+        # ===============================
+        # AMBIL DATA DARI FLUTTER
+        # ===============================
+        nama = request.form.get("nama", "").strip()
+        tags_raw = request.form.get("tags", "").strip()
+        jadwal = request.form.get("jadwal", "").strip()
+        harga_awal = request.form.get("harga_awal", "0").strip()
+        harga_diskon = request.form.get("harga_diskon", "0").strip()
+        durasi = request.form.get("durasi", "1 jam").strip()
 
-        nama = request.form.get("nama")
-
-        # FLUTTER KIRIM spesialis
-        # TAPI DATABASE SIMPAN KE tags
-        tags = request.form.get("spesialis")
-
-        harga = request.form.get("harga")
+        # 2. LOGIKA RAPIKAN FORMAT TAGS (Dibuat lebih robust)
+        tags = ""
+        if tags_raw:
+            clean_tags = tags_raw.strip()
+            # Coba parse jika formatnya JSON array, jika gagal anggap string biasa
+            try:
+                if clean_tags.startswith('['):
+                    tags_list = json.loads(clean_tags)
+                    if isinstance(tags_list, list):
+                        tags = ", ".join([str(t) for t in tags_list])
+                    else:
+                        tags = clean_tags
+                else:
+                    tags = clean_tags
+            except:
+                # Jika JSON error, bersihkan karakter pemisah manual
+                tags = clean_tags.replace('[', '').replace(']', '').replace('"', '').replace("'", "")
         
-        print("REQUEST FORM:", request.form)
-        print("NAMA:", nama)
-        print("TAGS:", tags)
-        print("HARGA:", harga)
+        # Bersihkan tags dari karakter sisa yang tidak diinginkan
+        tags = tags.strip(", ")
 
-        if not nama or not tags or not harga:
-
+        # 3. VALIDASI
+        if not nama or not tags or not harga_diskon:
             return jsonify({
                 "status": "error",
-                "message": "Data tidak lengkap"
+                "message": "Data Nama, Tags, atau Harga Diskon wajib diisi"
             }), 400
 
+        # 4. FOTO (LOGIKA UPLOAD)
         foto = ""
-
-        # ================= FOTO =================
         if 'foto' in request.files:
-
             file = request.files['foto']
-
-            if file.filename != '':
-
-                filename = secure_filename(
-                    file.filename
-                )
-
-                filepath = os.path.join(
-                    app.config['UPLOAD_FOLDER'],
-                    filename
-                )
-
+            if file and file.filename != '':
+                filename = secure_filename(file.filename)
+                # Pastikan direktori ada
+                os.makedirs(app.config.get('UPLOAD_FOLDER', 'uploads'), exist_ok=True) 
+                filepath = os.path.join(app.config.get('UPLOAD_FOLDER', 'uploads'), filename)
                 file.save(filepath)
-
                 foto = f"http://127.0.0.1:5000/uploads/{filename}"
 
-        # ================= DATABASE =================
+        # 5. DATABASE INSERT
         db = get_db()
         cur = db.cursor()
 
-        cur.execute(
-            """
-            INSERT INTO dokter
-            (
-                nama,
-                tags,
-                harga_diskon,
-                image_url
-            )
-            VALUES (%s, %s, %s, %s)
-            """,
-            (
-                nama,
-                tags,
-                harga,
-                foto
-            )
-        )
-
+        query = """
+            INSERT INTO dokter 
+            (nama, tags, jadwal, image_url, harga_awal, harga_diskon, durasi) 
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """
+        values = (nama, tags, jadwal, foto, harga_awal, harga_diskon, durasi)
+        
+        cur.execute(query, values)
         db.commit()
         cur.close()
 
@@ -1086,9 +1081,63 @@ def admin_tambah_dokter():
         }), 201
 
     except Exception as e:
+        print("EROR SERVER:", str(e))
+        return jsonify({
+            "status": "error",
+            "message": "Gagal menyimpan ke database: " + str(e)
+        }), 500
+    
+@app.route("/api/dokter", methods=["GET"])
+def get_dokter():
+    try:
+        db = get_db()
+        cur = db.cursor(dictionary=True)
 
-        print(str(e))
+        cur.execute("""
+            SELECT *
+            FROM dokter
+            ORDER BY id ASC
+        """)
 
+        rows = cur.fetchall()
+
+        data = []
+
+        for row in rows:
+            harga_awal = float(row["harga_awal"] or 0)
+            harga_diskon = float(row["harga_diskon"] or 0)
+
+            # Hitung diskon otomatis
+            if harga_awal > 0:
+                diskon = round(
+                    ((harga_awal - harga_diskon) / harga_awal) * 100
+                )
+            else:
+                diskon = 0
+
+            data.append({
+                "id": row["id"],
+                "nama": row["nama"],
+                "tags": row["tags"],
+                "jadwal": row["jadwal"],
+                "durasi": row["durasi"],
+                "image_url": row["image_url"],
+
+                # harga
+                "harga_awal": harga_awal,
+                "harga_diskon": harga_diskon,
+                "diskon": diskon,
+            })
+
+        cur.close()
+        db.close()
+
+        return jsonify({
+            "status": "success",
+            "data": data
+        }), 200
+
+    except Exception as e:
         return jsonify({
             "status": "error",
             "message": str(e)
