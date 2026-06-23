@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:yomans_konseling/screens/pembayaran/payment.dart';
@@ -20,8 +23,64 @@ class _DetailBookingPageState extends State<DetailBookingPage> {
   bool _isTabProfilAktif = true; 
    
   String _pilihanWaktu = 'Semua';
+  String _filterWaktu = "Semua";
   String _pilihanDurasi = '1 jam';
+List<dynamic> _jadwalDokter = [];
 
+
+@override
+void initState() {
+  super.initState();
+
+  fetchJadwal();
+}
+Future<void> fetchJadwal() async {
+
+  setState(() {
+    _loadingJadwal = true;
+  });
+
+  try {
+
+    final int dokterId =
+        widget.dataDokter['id'];
+
+    print("DOKTER ID = $dokterId");
+
+    final response =
+        await http.get(
+      Uri.parse(
+        'http://127.0.0.1:5000/api/dokter/$dokterId/jadwal',
+      ),
+    );
+
+    print("STATUS CODE = ${response.statusCode}");
+    print("BODY = ${response.body}");
+
+    final data =
+        jsonDecode(
+      response.body,
+    );
+
+    setState(() {
+      _jadwalDokter =
+          data['data'] ?? [];
+    });
+
+    print("DATA JADWAL = $_jadwalDokter");
+
+  } catch (e) {
+
+    print("ERROR FETCH JADWAL = $e");
+
+  }
+
+  setState(() {
+    _loadingJadwal = false;
+  });
+}
+
+bool _loadingJadwal = false;
   final List<String> _listWaktu = ['Semua', 'Pagi', 'Siang', 'Sore', 'Malam'];
   final List<String> _listDurasi = ['30 Menit', '1 jam', '1.5 jam', '2 jam'];
 
@@ -773,13 +832,27 @@ if (hargaAwalFinal > 0 &&
                     _tampilkanPilihanFilter(
                       judul: 'Pilih Waktu Konseling',
                       opsiData: _listWaktu,
-                      nilaiSekarang: _pilihanWaktu,
+                     nilaiSekarang: _filterWaktu,
+
                       padaSaatDipilih: (hasil) {
-                        setState(() => _pilihanWaktu = hasil);
+
+                        setState(() {
+
+                          _filterWaktu = hasil;
+
+                        });
+
+                        print(
+                          "FILTER = $_filterWaktu",
+                        );
                       },
                     );
                   },
-                  child: _buildFilterDropdown(Icons.access_time, 'Waktu:', _pilihanWaktu),
+                  child: _buildFilterDropdown(
+                      Icons.access_time,
+                      'Waktu:',
+                      _filterWaktu,
+                    ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -808,24 +881,202 @@ if (hargaAwalFinal > 0 &&
             ],
           ),
         ),
-        const Padding(
-          padding: EdgeInsets.all(16.0),
-          child: Text('Pilih Tanggal dan Waktu', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+       const Padding(
+  padding: EdgeInsets.all(16.0),
+  child: Text(
+    'Pilih Tanggal dan Waktu',
+    style: TextStyle(
+      fontSize: 14,
+      fontWeight: FontWeight.bold,
+    ),
+  ),
+),
+
+_loadingJadwal
+    ? const Center(
+        child: Padding(
+          padding: EdgeInsets.all(20),
+          child: CircularProgressIndicator(),
         ),
-        Container(
-          height: 100,
-          margin: const EdgeInsets.symmetric(horizontal: 16),
-          color: Colors.black.withOpacity(0.04),
-          child: const Center(
+      )
+    : Container(
+        margin: const EdgeInsets.symmetric(
+          horizontal: 16,
+        ),
+        child: Column(
+          children: (_filterWaktu == "Semua"
+                  ? _jadwalDokter
+                  : _jadwalDokter.where((jadwal) {
+
+                      return jadwal['sesi']
+                              .toString()
+                              .toLowerCase() ==
+                          _filterWaktu
+                              .toLowerCase();
+
+                    }).toList())
+             .map((jadwal) {
+
+  print(
+    "TAMPIL = ${jadwal['jam']} | ${jadwal['sesi']}"
+  );
+
+           return Card(
+  elevation: 3,
+  color: _pilihanWaktu ==
+          jadwal['jam'].toString()
+      ? Colors.green.shade50
+      : Colors.white,
+  shape: RoundedRectangleBorder(
+    borderRadius:
+        BorderRadius.circular(16),
+    side: BorderSide(
+      color: _pilihanWaktu ==
+              jadwal['jam']
+                  .toString()
+          ? const Color(0xff2d6a4f)
+          : Colors.grey.shade300,
+      width: 1.5,
+    ),
+  ),
+  child: ListTile(
+    contentPadding:
+        const EdgeInsets.symmetric(
+      horizontal: 16,
+      vertical: 10,
+    ),
+    leading: Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        color: const Color(0xff2d6a4f)
+            .withOpacity(0.1),
+        shape: BoxShape.circle,
+      ),
+      child: const Icon(
+        Icons.access_time,
+        color: Color(0xff2d6a4f),
+      ),
+    ),
+    title: Text(
+      jadwal['tanggal'].toString(),
+      style: const TextStyle(
+        fontWeight: FontWeight.bold,
+        fontSize: 16,
+      ),
+    ),
+    subtitle: Padding(
+      padding: const EdgeInsets.only(
+        top: 6,
+      ),
+      child: Column(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
+        children: [
+          Text(
+            "Jam : ${jadwal['jam']}",
+          ),
+          const SizedBox(height: 4),
+          Container(
+            padding:
+                const EdgeInsets.symmetric(
+              horizontal: 10,
+              vertical: 4,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.green
+                  .withOpacity(0.1),
+              borderRadius:
+                  BorderRadius.circular(
+                20,
+              ),
+            ),
             child: Text(
-              'Area Input Tanggal Kalender Kelompok', 
-              style: TextStyle(color: Colors.grey, fontSize: 12),
+              jadwal['sesi']
+                  .toString(),
+              style: const TextStyle(
+                color: Color(0xff2d6a4f),
+                fontWeight:
+                    FontWeight.bold,
+              ),
             ),
           ),
+        ],
+      ),
+    ),
+    trailing: _pilihanWaktu ==
+            jadwal['jam']
+                .toString()
+        ? Container(
+            padding:
+                const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 8,
+            ),
+            decoration:
+                BoxDecoration(
+              color: const Color(
+                  0xff2d6a4f),
+              borderRadius:
+                  BorderRadius.circular(
+                20,
+              ),
+            ),
+            child: const Row(
+              mainAxisSize:
+                  MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.check,
+                  color: Colors.white,
+                  size: 16,
+                ),
+                SizedBox(width: 4),
+                Text(
+                  "Dipilih",
+                  style: TextStyle(
+                    color:
+                        Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          )
+        : ElevatedButton(
+            onPressed: () {
+              setState(() {
+                _pilihanWaktu =
+                    jadwal['jam']
+                        .toString();
+              });
+
+              print(
+                "JAM DIPILIH = $_pilihanWaktu",
+              );
+            },
+            style: ElevatedButton
+                .styleFrom(
+              backgroundColor:
+                  const Color(
+                0xff2d6a4f,
+              ),
+            ),
+            child: const Text(
+              "Pilih",
+              style: TextStyle(
+                color:
+                    Colors.white,
+              ),
+            ),
+          ),
+  ),
+);
+          }).toList(),
         ),
-      ],
-    );
-  }
+      ),
+    ],
+  );
+}
 
   Widget _buildFilterDropdown(IconData icon, String label, String value) {
     return Container(

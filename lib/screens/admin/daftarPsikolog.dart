@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:yomans_konseling/providers/dokter_provider.dart';
+import 'package:yomans_konseling/screens/admin/kelola_jadwal.dart';
 import 'package:yomans_konseling/screens/admin/tambahDataPsikolog.dart';
 
 class DaftarPsikologAdminPage extends StatefulWidget {
@@ -236,50 +237,61 @@ if (dokter['tags'] != null &&
 
                       const SizedBox(width: 12),
 
-                      // ================= ACTION =================
-                      Row(
-                        mainAxisSize:
-                            MainAxisSize.min,
+// ================= ACTION =================
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.edit_note_rounded,
+                                  color: Colors.blue,
+                                  size: 28,
+                                ),
+                                onPressed: () {
+                                  print("Edit data: ${dokter['nama']}");
+                                },
+                              ),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.calendar_month,
+                                  color: Colors.green,
+                                  size: 26,
+                                ),
+                               onPressed: () {
 
-                        children: [
-                          IconButton(
-                            icon: const Icon(
-                              Icons.edit_note_rounded,
-                              color: Colors.blue,
-                              size: 28,
-                            ),
-
-                            onPressed: () {
-                              print(
-                                "Edit data: ${dokter['nama']}",
-                              );
-                            },
-                          ),
-
-                          IconButton(
-                            icon: const Icon(
-                              Icons
-                                  .delete_outline_rounded,
-                              color: Colors.red,
-                              size: 24,
-                            ),
-
-                            onPressed: () {
-                              _tampilkanDialogHapus(
+                              Navigator.push(
                                 context,
-                                dokter,
-                                dokterProvider,
+                                MaterialPageRoute(
+                                  builder: (_) => KelolaJadwalPage(
+                                    dokterId: dokter['id'],
+                                    namaDokter: dokter['nama'],
+                                  ),
+                                ),
                               );
-                            },
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
 
+                            },
+                              ),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.delete_outline_rounded,
+                                  color: Colors.red,
+                                  size: 24,
+                                ),
+                                onPressed: () {
+                                  _tampilkanDialogHapus(
+                                    context,
+                                    dokter,
+                                    dokterProvider,
+                                  );
+                                },
+                              ),
+                            ],
+                          ), // Penutup Row Action
+                        ],
+                      ), // Penutup Row Utama di dalam Container
+                    ); // Penutup Container item
+                  }, // Penutup itemBuilder
+                ), // Penutup ListView.builder
       // ================= BUTTON BAWAH =================
       bottomNavigationBar: Container(
         padding: const EdgeInsets.all(16),

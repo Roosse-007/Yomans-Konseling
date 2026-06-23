@@ -1142,7 +1142,237 @@ def get_dokter():
             "status": "error",
             "message": str(e)
         }), 500
+# ================= TAMBAH JADWAL =================
+@app.route("/api/admin/jadwal", methods=["POST"])
+def tambah_jadwal():
 
+    try:
+
+        data = request.get_json()
+
+        dokter_id = data.get("dokter_id")
+        tanggal = data.get("tanggal")
+        jam = data.get("jam")
+        sesi = data.get("sesi")
+
+        if not dokter_id or not tanggal or not jam or not sesi:
+
+            return jsonify({
+                "status": "error",
+                "message": "Data tidak lengkap"
+            }), 400
+
+        db = get_db()
+
+        cur = db.cursor()
+
+        cur.execute("""
+            INSERT INTO jadwal_dokter
+            (
+                dokter_id,
+                tanggal,
+                jam,
+                sesi,
+                status
+            )
+            VALUES
+            (
+                %s,
+                %s,
+                %s,
+                %s,
+                'tersedia'
+            )
+        """, (
+            dokter_id,
+            tanggal,
+            jam,
+            sesi
+        ))
+
+        db.commit()
+
+        return jsonify({
+            "status": "success",
+            "message": "Jadwal berhasil ditambahkan"
+        })
+
+    except Exception as e:
+
+        print("TAMBAH JADWAL ERROR:", e)
+
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+    
+    # ================= GET ALL JADWAL =================
+@app.route("/api/admin/jadwal", methods=["GET"])
+def get_all_jadwal():
+
+    try:
+
+        db = get_db()
+
+        cur = db.cursor(
+            dictionary=True
+        )
+
+        cur.execute("""
+            SELECT
+                j.*,
+                d.nama
+            FROM jadwal_dokter j
+            JOIN dokter d
+            ON j.dokter_id = d.id
+            ORDER BY j.tanggal ASC,
+                     j.jam ASC
+        """)
+
+        data = cur.fetchall()
+
+        for item in data:
+
+            item["tanggal"] = str(
+                item["tanggal"]
+            )
+
+            item["jam"] = str(
+                item["jam"]
+            )
+
+        return jsonify({
+            "status": "success",
+            "data": data
+        })
+
+    except Exception as e:
+
+        print(e)
+
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+    
+    # ================= EDIT JADWAL =================
+@app.route(
+    "/api/admin/jadwal/<int:id>",
+    methods=["PUT"]
+)
+def edit_jadwal(id):
+
+    try:
+
+        data = request.get_json()
+
+        tanggal = data.get("tanggal")
+        jam = data.get("jam")
+        sesi = data.get("sesi")
+
+        db = get_db()
+
+        cur = db.cursor()
+
+        cur.execute("""
+            UPDATE jadwal_dokter
+            SET
+                tanggal=%s,
+                jam=%s,
+                sesi=%s
+            WHERE id=%s
+        """, (
+            tanggal,
+            jam,
+            sesi,
+            id
+        ))
+
+        db.commit()
+
+        return jsonify({
+            "status": "success",
+            "message": "Jadwal berhasil diubah"
+        })
+
+    except Exception as e:
+
+        print(e)
+
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+    
+    # ================= HAPUS JADWAL =================
+@app.route(
+    "/api/admin/jadwal/<int:id>",
+    methods=["DELETE"]
+)
+def hapus_jadwal(id):
+
+    try:
+
+        db = get_db()
+
+        cur = db.cursor()
+
+        cur.execute("""
+            DELETE FROM jadwal_dokter
+            WHERE id=%s
+        """, (id,))
+
+        db.commit()
+
+        return jsonify({
+            "status": "success",
+            "message": "Jadwal berhasil dihapus"
+        })
+
+    except Exception as e:
+
+        print(e)
+
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+    
+    # ================= ADD THIS NEW ENDPOINT =================
+@app.route("/api/dokter/<int:dokter_id>/jadwal", methods=["GET"])
+def get_jadwal_by_dokter(dokter_id):
+    try:
+        db = get_db()
+        cur = db.cursor(dictionary=True)
+        
+        # Mengambil jadwal spesifik milik 1 dokter saja
+        cur.execute("""
+            SELECT id, dokter_id, tanggal, jam, sesi, status 
+            FROM jadwal_dokter 
+            WHERE dokter_id = %s
+            ORDER BY tanggal ASC, jam ASC
+        """, (dokter_id,))
+        
+        data = cur.fetchall()
+        
+        # Konversi tipe data Date dan Time agar bisa dikirim sebagai JSON string
+        for item in data:
+            item["tanggal"] = str(item["tanggal"])
+            item["jam"] = str(item["jam"])
+            if "id_jadwal" in item and "id" not in item:
+                item["id"] = item["id_jadwal"]
+                
+        return jsonify({
+            "status": "success",
+            "data": data
+        }), 200
+
+    except Exception as e:
+        print("GET JADWAL PER DOKTER ERROR:", e)
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
 
 # ----------------- 2. CRUD BERITA -----------------
 
@@ -1305,6 +1535,106 @@ def delete_dokter(id):
         return jsonify({
             "status": "error",
             "message": str(e)
+        }), 500
+  # ================= GET JADWAL DOKTER =================
+@app.route(
+    "/api/dokter/<int:dokter_id>/jadwal",
+    methods=["GET"]
+)
+def get_jadwal_dokter(dokter_id):
+
+    try:
+
+        db = get_db()
+
+        cur = db.cursor(
+            dictionary=True
+        )
+
+        cur.execute("""
+            SELECT
+                id,
+                dokter_id,
+                tanggal,
+                jam,
+                sesi,
+                status
+            FROM jadwal_dokter
+            WHERE dokter_id = %s
+            AND status = 'tersedia'
+            ORDER BY tanggal ASC,
+                     jam ASC
+        """, (dokter_id,))
+
+        data = cur.fetchall()
+
+        # ================= FIX FORMAT JSON =================
+        for item in data:
+
+            if item.get("tanggal"):
+                item["tanggal"] = str(
+                    item["tanggal"]
+                )
+
+            if item.get("jam"):
+                item["jam"] = str(
+                    item["jam"]
+                )
+
+            if item.get("sesi"):
+                item["sesi"] = str(
+                    item["sesi"]
+                )
+
+        return jsonify({
+            "status": "success",
+            "data": data
+        })
+
+    except Exception as e:
+
+        print(
+            "GET JADWAL ERROR:",
+            e
+        )
+
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
+        # ================= FIX DATE & TIME =================
+        for item in data:
+
+            if item.get("tanggal"):
+                item["tanggal"] = str(
+                    item["tanggal"]
+                )
+
+            if item.get("jam"):
+                item["jam"] = str(
+                    item["jam"]
+                )
+
+        print("JADWAL DOKTER:")
+        print(data)
+
+        return jsonify({
+            "status": "success",
+            "data": data
+        })
+
+    except Exception as e:
+
+        print(
+            "GET JADWAL ERROR:",
+            e
+        )
+
+        return jsonify({
+            "status": "error",
+            "message":
+                str(e)
         }), 500
 # ================= RUN SERVER =================
 if __name__ == "__main__":

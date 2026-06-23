@@ -10,34 +10,10 @@ class DokterProvider with ChangeNotifier {
   final String _baseUrl = 'http://127.0.0.1:5000/api';
 
   // ================= DATA AWAL =================
-  List<Map<String, dynamic>> _listDokter = [
-    {
-      "id": 1,
-      "nama": "Ira Febriana M.Psi.,Psikolog",
-      "tags": ["Keluarga", "Kecemasan", "Percintaan"],
-      "jadwal": "Hari ini, 18.00 WIB",
-      "image_url": "lib/assets/ira1.png",
-      "harga": 150000
-    },
-    {
-      "id": 2,
-      "nama": "Lil Roosse K.Ing.,Petarunkx",
-      "tags": ["Keluarga", "Kecemasan", "Perkelahian"],
-      "jadwal": "Hari ini, 19.00 WIB",
-      "image_url": "lib/assets/gue1.png",
-      "harga": 120000
-    },
-    {
-      "id": 3,
-      "nama": "Teguh B.K., M.Psi",
-      "tags": ["Keluarga", "Kecemasan"],
-      "jadwal": "Besok, 10.00 WIB",
-      "image_url": "lib/assets/teguh.png",
-      "harga": 100000
-    },
-  ];
+ // ================= DATA AWAL =================
+List<Map<String, dynamic>> _listDokter = [];
 
-  List<Map<String, dynamic>> get listDokter => _listDokter;
+List<Map<String, dynamic>> get listDokter => _listDokter;
 
 // ================= FETCH DATA (FIXED TOTAL) =================
   Future<void> fetchDokter() async {

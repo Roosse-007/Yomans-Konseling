@@ -163,13 +163,9 @@ class _HomePageState extends State<HomePage> {
                         List<String> tags = List<String>.from(dokter['tags'] ?? []);
 
                         return _buildDokterCard(
-                          context,
-                          id: dokter['id'] ?? 1,
-                          imagePath: dokter['image_url'] ?? 'assets/default_dokter.png', 
-                          name: dokter['nama'] ?? 'Nama Dokter',
-                          tags: tags,
-                          time: dokter['jadwal'] ?? 'Belum ada jadwal',
-                        );
+                              context,
+                              dokter: dokter,
+                            );
                       },
                     ),
                   );
@@ -373,127 +369,185 @@ class _HomePageState extends State<HomePage> {
 
   // ================= WIDGET BUILDER UNTUK CARD SLIDER PSIKOLOG =================
   // ================= WIDGET BUILDER UNTUK CARD SLIDER PSIKOLOG =================
-  Widget _buildDokterCard(
-    BuildContext context, {
-    required int id,
-    required String imagePath,
-    required String name,
-    required List<String> tags,
-    required String time,
-  }) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          splashColor: Colors.green.withOpacity(0.15),
-          highlightColor: Colors.green.withOpacity(0.08),
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => DetailBookingPage(
-                  dataDokter: {
-                    'id': id,         // Perbaikan: pakai parameter langsung
-                    'nama': name,     // Perbaikan: pakai parameter langsung
-                    'jadwal': time,   // Perbaikan: pakai parameter langsung
-                    'image': imagePath,// Perbaikan: pakai parameter langsung
-                    'tags': tags,     // Perbaikan: pakai parameter langsung
-                  },
-                ),
+Widget _buildDokterCard(
+  BuildContext context, {
+  required Map<String, dynamic> dokter,
+}) {
+  final int id = dokter['id'] ?? 0;
+
+  final String imagePath =
+      dokter['image_url'] ?? '';
+
+  final String name =
+      dokter['nama'] ?? '';
+
+  final List<String> tags =
+      List<String>.from(
+        dokter['tags'] ?? [],
+      );
+
+  final String time =
+      dokter['jadwal'] ?? '';
+
+  final int hargaAwal =
+      dokter['harga_awal'] ?? 0;
+
+  final int hargaDiskon =
+      dokter['harga_diskon'] ?? 0;
+
+  final int diskon =
+      dokter['diskon'] ?? 0;
+
+  return MouseRegion(
+    cursor: SystemMouseCursors.click,
+    child: Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () {
+          print("DATA DOKTER HOME:");
+          print(dokter);
+
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => DetailBookingPage(
+                dataDokter: {
+                  'id': id,
+                  'nama': name,
+                  'jadwal': time,
+                  'image': imagePath,
+                  'tags': tags,
+                  'harga_awal': hargaAwal,
+                  'harga_diskon': hargaDiskon,
+                  'diskon': diskon,
+                },
               ),
-            );
-          },
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            width: 165,
-            margin: const EdgeInsets.only(right: 15, bottom: 8, top: 4),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.10),
-                  blurRadius: 12,
-                  spreadRadius: 2,
-                  offset: const Offset(0, 6),
+            ),
+          );
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          width: 165,
+          margin: const EdgeInsets.only(
+            right: 15,
+            bottom: 8,
+            top: 4,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.10),
+                blurRadius: 12,
+                spreadRadius: 2,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(10),
+            child: Column(
+              children: [
+                ClipRRect(
+                  borderRadius:
+                      BorderRadius.circular(12),
+                  child: imagePath.startsWith('http')
+                      ? Image.network(
+                          imagePath,
+                          height: 90,
+                          width: 90,
+                          fit: BoxFit.cover,
+                          errorBuilder:
+                              (context, error, stackTrace) =>
+                                  _buildAvatarError(),
+                        )
+                      : Image.asset(
+                          imagePath,
+                          height: 90,
+                          width: 90,
+                          fit: BoxFit.cover,
+                          errorBuilder:
+                              (context, error, stackTrace) =>
+                                  _buildAvatarError(),
+                        ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 4,
+                  runSpacing: 4,
+                  alignment: WrapAlignment.center,
+                  children: tags.map((tag) {
+                    return Container(
+                      padding:
+                          const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE8F5E9),
+                        borderRadius:
+                            BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        tag,
+                        style: const TextStyle(
+                          fontSize: 8,
+                          color: Colors.green,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const Spacer(),
+                const Text(
+                  "Jadwal tercepat",
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.grey,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2E6A3F),
+                    borderRadius:
+                        BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    time,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ],
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(10.0),
-              child: Column(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: imagePath.startsWith('http')
-                        ? Image.network(
-                            imagePath,
-                            height: 90,
-                            width: 90,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) => _buildAvatarError(),
-                          )
-                        : Image.asset(
-                            imagePath,
-                            height: 90,
-                            width: 90,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) => _buildAvatarError(),
-                          ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                  ),
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 4,
-                    runSpacing: 4,
-                    alignment: WrapAlignment.center,
-                    children: tags.map((tag) {
-                      return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFE8F5E9),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          tag,
-                          style: const TextStyle(fontSize: 8, color: Colors.green, fontWeight: FontWeight.bold),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                  const Spacer(),
-                  const Text(
-                    "Jadwal tercepat",
-                    style: TextStyle(fontSize: 10, color: Colors.grey),
-                  ),
-                  const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF2E6A3F),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      time,
-                      style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
-                    ),
-                  )
-                ],
-              ),
             ),
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildAvatarError() {
     return Container(
