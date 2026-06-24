@@ -1636,6 +1636,97 @@ def get_jadwal_dokter(dokter_id):
             "message":
                 str(e)
         }), 500
+  # ================= PSIKOLOG ANDALAN KAMI POST =================
+@app.route("/api/admin/dokter/<int:id>/toggle-andalan", methods=["POST"])
+def toggle_andalan(id):
+    try:
+        db = get_db()
+        cur = db.cursor(dictionary=True)
+        
+        # Cek status andalan dokter saat ini
+        cur.execute("SELECT is_andalan FROM dokter WHERE id = %s", (id,))
+        dokter = cur.fetchone()
+        
+        if not dokter:
+            cur.close()
+            return jsonify({"status": "error", "message": "Psikolog tidak ditemukan"}), 404
+            
+        # Logika toggle status
+        current_status = dokter.get("is_andalan") if dokter.get("is_andalan") is not None else 0
+        status_baru = 0 if current_status == 1 else 1
+        
+        # Atur kustomisasi pesan notifikasi berdasarkan status baru
+        if status_baru == 1:
+            pesan_notifikasi = "Psikolog berhasil ditambahkan ke psikolog andalan kami"
+        else:
+            pesan_notifikasi = "Psikolog berhasil dihapus dari psikolog andalan kami"
+        
+        # Update data ke database
+        cur.execute("UPDATE dokter SET is_andalan = %s WHERE id = %s", (status_baru, id))
+        db.commit()
+        cur.close()
+        
+        return jsonify({
+            "status": "success", 
+            "message": pesan_notifikasi, # Menggunakan pesan dinamis baru
+            "is_andalan": status_baru
+        }), 200
+    except Exception as e:
+        print("TOGGLE ANDALAN ERROR:", e)
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+# ================= PSIKOLOG ANDALAN KAMI GET =================
+@app.route("/api/user/dokter-andalan", methods=["GET"])
+def get_dokter_andalan():
+    try:
+        db = get_db()
+        cur = db.cursor(dictionary=True)
+        
+        # Mengambil data psikolog yang diberi bintang (is_andalan = 1)
+        cur.execute("SELECT id, nama, tags, image_url, harga_diskon FROM dokter WHERE is_andalan = 1 ORDER BY id DESC")
+        data_andalan = cur.fetchall()
+        
+        cur.close()
+        return jsonify({"status": "success", "data": data_andalan}), 200
+        
+    except Exception as e:
+        print("ERROR GET DOKTER ANDALAN:", e)
+        return jsonify({"status": "error", "message": str(e)}), 500
+    # ================= ADMIN EDIT =================
+@app.route("/api/admin/dokter/<int:id>/update", methods=["POST"])
+def update_dokter(id):
+    db = None
+    try:
+        data = request.form
+        db = get_db()
+        cur = db.cursor(dictionary=True)
+
+        # Update data teks
+        query = """UPDATE dokter SET nama=%s, tags=%s, jadwal=%s, harga_awal=%s, harga_diskon=%s, durasi=%s WHERE id=%s"""
+        cur.execute(query, (data.get("nama"), data.get("tags"), data.get("jadwal"), 
+                            data.get("harga_awal"), data.get("harga_diskon"), data.get("durasi"), id))
+
+        # Update foto (jika ada)
+        if 'foto' in request.files:
+            file = request.files['foto']
+            if file and file.filename != '':
+                # Nama file fix (dokter_ID.png) agar URL konsisten
+                filename_unik = f"dokter_{id}.png"
+                file_path = os.path.join(UPLOAD_FOLDER, filename_unik)
+                file.save(file_path)
+                
+                image_url = f"http://127.0.0.1:5000/static/uploads/{filename_unik}"
+                cur.execute("UPDATE dokter SET image_url = %s WHERE id = %s", (image_url, id))
+                print(f"DEBUG: Sukses simpan foto ke {image_url}")
+
+        db.commit()
+        cur.close()
+        return jsonify({"status": "success", "message": "Data berhasil diperbarui"}), 200
+    except Exception as e:
+        if db: db.rollback()
+        print("UPDATE ERROR:", str(e))
+        return jsonify({"status": "error", "message": str(e)}), 500
+    
 # ================= RUN SERVER =================
 if __name__ == "__main__":
     app.run(
