@@ -157,37 +157,145 @@ class _AdminGejalaScreenState extends State<AdminGejalaScreen> {
     _selectedKategori = 'stres';
   }
 
-  // ================= DIALOG KONFIRMASI HAPUS =================
-  void _showDeleteConfirmation(dynamic id, String namaGejala) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: const Row(
-          children: [
-            Icon(Icons.warning_amber_rounded, color: Colors.red),
-            SizedBox(width: 8),
-            Text('Hapus Gejala', style: TextStyle(fontWeight: FontWeight.bold)),
-          ],
+// ================= DIALOG KONFIRMASI HAPUS =================
+void _showDeleteConfirmation(dynamic id, String namaGejala) {
+
+  showDialog(
+
+    context: context,
+
+    barrierDismissible: false,
+
+    builder: (context) {
+
+      return AlertDialog(
+
+        scrollable: true,
+
+        insetPadding: const EdgeInsets.all(20),
+
+        shape: RoundedRectangleBorder(
+
+          borderRadius: BorderRadius.circular(16),
+
         ),
-        content: Text('Apakah Anda yakin ingin menghapus gejala "$namaGejala"?'),
+
+        title: const Row(
+
+          children: [
+
+            Icon(
+              Icons.warning_amber_rounded,
+              color: Colors.red,
+            ),
+
+            SizedBox(width: 10),
+
+            Expanded(
+
+              child: Text(
+
+                'Hapus Gejala',
+
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                ),
+
+              ),
+
+            ),
+
+          ],
+
+        ),
+
+        content: SizedBox(
+
+          width: 350,
+
+          child: Text(
+
+            'Apakah Anda yakin ingin menghapus gejala:\n\n"$namaGejala" ?',
+
+            style: const TextStyle(
+              fontSize: 15,
+            ),
+
+          ),
+
+        ),
+
         actions: [
+
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Batal', style: TextStyle(color: Colors.grey)),
-          ),
-          ElevatedButton(
+
             onPressed: () {
+
               Navigator.pop(context);
-              hapusGejala(id);
+
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Hapus', style: TextStyle(color: Colors.white)),
+
+            child: const Text(
+
+              'Batal',
+
+              style: TextStyle(
+                color: Colors.grey,
+              ),
+
+            ),
+
           ),
+
+          ElevatedButton.icon(
+
+            onPressed: () {
+
+              Navigator.pop(context);
+
+              hapusGejala(id);
+
+            },
+
+            icon: const Icon(
+              Icons.delete,
+              color: Colors.white,
+              size: 18,
+            ),
+
+            label: const Text(
+
+              'Hapus',
+
+              style: TextStyle(
+                color: Colors.white,
+              ),
+
+            ),
+
+            style: ElevatedButton.styleFrom(
+
+              backgroundColor: Colors.red,
+
+              shape: RoundedRectangleBorder(
+
+                borderRadius: BorderRadius.circular(8),
+
+              ),
+
+            ),
+
+          ),
+
         ],
-      ),
-    );
-  }
+
+      );
+
+    },
+
+  );
+
+}
 
   // ================= FORM DIALOG INPUT (TAMBAH & EDIT) =================
   void _showFormDialog({Map<String, dynamic>? gejala}) {

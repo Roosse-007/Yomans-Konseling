@@ -1280,67 +1280,6 @@ def submit_review():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
-# ================= TAMBAHKAN KODE INI DI PALING BAWAH FILE APP.PY =================
-# ================= MASTER DATA GEJALA (SINKRONISASI FLUTTER) =================
-
-@app.route("/api/gejala", methods=["GET"])
-def get_all_gejala():
-    """Mengambil semua data gejala untuk ditampilkan di list Admin Flutter"""
-    try:
-        db = get_db()
-        cur = db.cursor(dictionary=True)
-        
-        # Mengambil id, nama_gejala, kategori, dan bobot dari database
-        cur.execute("SELECT id, nama_gejala, kategori, bobot FROM gejala ORDER BY id DESC")
-        data_gejala = cur.fetchall()
-        cur.close()
-        
-        return jsonify({
-            "status": "success",
-            "data": data_gejala
-        }), 200
-    except Exception as e:
-        print("GET GEJALA ERROR:", e)
-        return jsonify({"status": "error", "message": "Gagal mengambil data gejala"}), 500
-
-
-
-@app.route("/api/gejala/<int:gejala_id>", methods=["PUT"])
-def update_gejala_existing(gejala_id):
-    """Memperbarui nama, kategori, dan bobot gejala berdasarkan ID saat tombol Update ditekan"""
-    try:
-        data = request.get_json(silent=True)
-        if not data:
-            return jsonify({"status": "error", "message": "Data perubahan kosong"}), 400
-            
-        nama = data.get("nama_gejala")
-        kategori = data.get("kategori")
-        bobot = data.get("bobot")
-        
-        db = get_db()
-        cur = db.cursor(dictionary=True)
-        
-        cur.execute(
-            "UPDATE gejala SET nama_gejala=%s, kategori=%s, bobot=%s WHERE id=%s",
-            (nama, kategori, int(bobot), gejala_id)
-        )
-        db.commit()
-        cur.close()
-        
-        return jsonify({
-            "status": "success",
-            "message": "Data gejala berhasil diperbarui"
-        }), 200
-    except Exception as e:
-        print("PUT GEJALA ERROR:", e)
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-
-# Pastikan baris ini tetap berada di paling bawah file app.py Anda
-if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5000)
-
-
 @app.route("/api/cancel-booking", methods=["POST"])
 def cancel_booking():
     try:
@@ -1803,37 +1742,107 @@ def delete_dokter(id):
             "message": str(e)
         }), 500
     
-
+@app.route("/api/gejala", methods=["GET"])
+def get_all_gejala():
+    """Mengambil semua data gejala untuk ditampilkan di list Admin Flutter"""
+    try:
+        db = get_db()
+        cur = db.cursor(dictionary=True)
+        
+        # Mengambil id, nama_gejala, kategori, dan bobot dari database
+        cur.execute("SELECT id, nama_gejala, kategori, bobot FROM gejala ORDER BY id DESC")
+        data_gejala = cur.fetchall()
+        cur.close()
+        
+        return jsonify({
+            "status": "success",
+            "data": data_gejala
+        }), 200
+    except Exception as e:
+        print("GET GEJALA ERROR:", e)
+        return jsonify({"status": "error", "message": "Gagal mengambil data gejala"}), 500
 
 # 2. TAMBAH DATA GEJALA (POST)
 @app.route('/api/gejala', methods=['POST'])
 def tambah_gejala_baru():
-    db = None
-    cur = None
+
+    conn = None
+    cursor = None
+
     try:
+
         data = request.get_json()
+
         if not data:
-            return jsonify({"status": "error", "message": "Format data tidak valid!"}), 400
-        
+            return jsonify({
+                "status":"error",
+                "message":"Data kosong"
+            }),400
+
         nama_gejala = data.get('nama_gejala')
+        kategori = data.get('kategori')
+        bobot = data.get('bobot')
 
         if not nama_gejala:
-            return jsonify({"status": "error", "message": "Nama gejala wajib diisi!"}), 400
+            return jsonify({
+                "status":"error",
+                "message":"Nama gejala wajib diisi"
+            }),400
 
-        db = get_db()
-        cur = db.cursor()
-        
-        # Hanya insert ke kolom nama_gejala
-        cur.execute("INSERT INTO gejala (nama_gejala) VALUES (%s)", (nama_gejala,))
-        db.commit()
-        
-        return jsonify({"status": "success", "message": "Gejala baru berhasil ditambahkan!"}), 201
+        if not kategori:
+            return jsonify({
+                "status":"error",
+                "message":"Kategori wajib diisi"
+            }),400
+
+        if bobot is None:
+            return jsonify({
+                "status":"error",
+                "message":"Bobot wajib diisi"
+            }),400
+
+        conn = get_db()
+
+        cursor = conn.cursor()
+
+        sql = """
+        INSERT INTO gejala
+        (nama_gejala,kategori,bobot)
+        VALUES(%s,%s,%s)
+        """
+
+        cursor.execute(
+            sql,
+            (
+                nama_gejala,
+                kategori,
+                bobot
+            )
+        )
+
+        conn.commit()
+
+        return jsonify({
+            "status":"success",
+            "message":"Gejala berhasil ditambahkan"
+        }),201
+
     except Exception as e:
-        if db: db.rollback()
-        return jsonify({"status": "error", "message": f"Kendala Database: {str(e)}"}), 500
+
+        if conn:
+            conn.rollback()
+
+        print("ERROR TAMBAH GEJALA:",str(e))
+
+        return jsonify({
+            "status":"error",
+            "message":str(e)
+        }),500
+
     finally:
-        if cur: cur.close()
-        if db: db.close()
+
+        if cursor:
+            cursor.close()
 
 # 3. UBAH DATA GEJALA (PUT)
 from flask import request, jsonify  # Pastikan request sudah di-import di bagian atas file app.py
@@ -1908,6 +1917,8 @@ def handle_gejala_by_id(id):
         except Exception as e:
             print(f"ERROR PADA PUT GEJALA: {str(e)}")
             return jsonify({"status": "error", "message": f"Server Error: {str(e)}"}), 500
+
+            
 # ================= RUN SERVER =================
 if __name__ == "__main__":
     app.run(
