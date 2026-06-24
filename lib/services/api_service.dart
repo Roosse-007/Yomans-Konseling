@@ -165,7 +165,43 @@ class ApiService {
       };
     }
   }
+// ================= HAPUS GEJALA (DELETE - FIX TOTAL) =================
+  static Future<Map<String, dynamic>> deleteGejala(int id) async {
+    try {
+      final res = await http.delete(
+        Uri.parse("$baseUrl/gejala/$id"), 
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+        },
+      );
 
+      // Pastikan statusnya sukses (200 OK)
+      if (res.statusCode == 200) {
+        // Cek apakah response body berupa JSON valid
+        try {
+          return jsonDecode(res.body);
+        } catch (_) {
+          // Jika Flask mengembalikan teks string biasa, kita bungkus jadi Map JSON secara manual
+          return {
+            "status": "success",
+            "message": res.body.isNotEmpty ? res.body : "Data gejala berhasil dihapus!"
+          };
+        }
+      } else {
+        return {
+          "status": "error",
+          "message": "Server merespons dengan status error: ${res.statusCode}"
+        };
+      }
+    } catch (e) {
+      print("DELETE GEJALA ERROR: $e");
+      return {
+        "status": "error",
+        "message": "Kendala koneksi: Gagal menghapus data gejala dari server"
+      };
+    }
+  }
   // ================= RESET PASSWORD =================
   static Future<Map<String, dynamic>>
       resetPassword({

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:yomans_konseling/providers/auth_provider.dart';
+import 'package:yomans_konseling/screens/admin/Admin_Gejala_Screen.dart';
 import 'package:yomans_konseling/screens/admin/daftarPsikolog.dart';
 import 'package:yomans_konseling/screens/auth/login.dart';
 import 'package:yomans_konseling/screens/berita/admin_berita_screen.dart';
+
 
 
 void main() {
@@ -383,7 +385,14 @@ class AdminDashboard extends StatelessWidget {
                                   subtitle: 'Gejala-Gejala',
                                   buttonText: 'Buka Daftar Gejala',
                                   iconData: Icons.add_moderator_outlined,
-                                  onHeaderButtonTap: () {},
+                                  onHeaderButtonTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => AdminGejalaScreen(),
+                                      ),
+                                    );
+                                  },
                                 ),
                                
                               ],

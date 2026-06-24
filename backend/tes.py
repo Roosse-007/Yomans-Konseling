@@ -20,8 +20,8 @@ from flask_jwt_extended import (
 load_dotenv()
 
 app = Flask(__name__)
-# Cari bagian ================= CORS ================= di kodemu, lalu ganti menjadi:
 CORS(app)
+# Ambil jalur direktori tempat file app.py ini berada
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -1280,6 +1280,100 @@ def submit_review():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
+# ================= TAMBAHKAN KODE INI DI PALING BAWAH FILE APP.PY =================
+# ================= MASTER DATA GEJALA (SINKRONISASI FLUTTER) =================
+
+@app.route("/api/gejala", methods=["GET"])
+def get_all_gejala():
+    """Mengambil semua data gejala untuk ditampilkan di list Admin Flutter"""
+    try:
+        db = get_db()
+        cur = db.cursor(dictionary=True)
+        
+        # Mengambil id, nama_gejala, kategori, dan bobot dari database
+        cur.execute("SELECT id, nama_gejala, kategori, bobot FROM gejala ORDER BY id DESC")
+        data_gejala = cur.fetchall()
+        cur.close()
+        
+        return jsonify({
+            "status": "success",
+            "data": data_gejala
+        }), 200
+    except Exception as e:
+        print("GET GEJALA ERROR:", e)
+        return jsonify({"status": "error", "message": "Gagal mengambil data gejala"}), 500
+
+
+@app.route("/api/gejala", methods=["POST"])
+def tambah_gejala_baru():
+    """Menambahkan data gejala baru dari form dialog Flutter"""
+    try:
+        data = request.get_json(silent=True)
+        if not data:
+            return jsonify({"status": "error", "message": "Data kosong"}), 400
+            
+        nama = data.get("nama_gejala")
+        kategori = data.get("kategori", "stres")
+        bobot = data.get("bobot", 2)
+        
+        if not nama:
+            return jsonify({"status": "error", "message": "Nama gejala wajib diisi"}), 400
+            
+        db = get_db()
+        cur = db.cursor(dictionary=True)
+        
+        cur.execute(
+            "INSERT INTO gejala (nama_gejala, kategori, bobot) VALUES (%s, %s, %s)",
+            (nama, kategori, int(bobot))
+        )
+        db.commit()
+        cur.close()
+        
+        return jsonify({
+            "status": "success",
+            "message": "Gejala baru berhasil ditambahkan"
+        }), 201
+    except Exception as e:
+        print("POST GEJALA ERROR:", e)
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/api/gejala/<int:gejala_id>", methods=["PUT"])
+def update_gejala_existing(gejala_id):
+    """Memperbarui nama, kategori, dan bobot gejala berdasarkan ID saat tombol Update ditekan"""
+    try:
+        data = request.get_json(silent=True)
+        if not data:
+            return jsonify({"status": "error", "message": "Data perubahan kosong"}), 400
+            
+        nama = data.get("nama_gejala")
+        kategori = data.get("kategori")
+        bobot = data.get("bobot")
+        
+        db = get_db()
+        cur = db.cursor(dictionary=True)
+        
+        cur.execute(
+            "UPDATE gejala SET nama_gejala=%s, kategori=%s, bobot=%s WHERE id=%s",
+            (nama, kategori, int(bobot), gejala_id)
+        )
+        db.commit()
+        cur.close()
+        
+        return jsonify({
+            "status": "success",
+            "message": "Data gejala berhasil diperbarui"
+        }), 200
+    except Exception as e:
+        print("PUT GEJALA ERROR:", e)
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+# Pastikan baris ini tetap berada di paling bawah file app.py Anda
+if __name__ == "__main__":
+    app.run(debug=True, host="0.0.0.0", port=5000)
+
+
 @app.route("/api/cancel-booking", methods=["POST"])
 def cancel_booking():
     try:
@@ -1742,137 +1836,97 @@ def delete_dokter(id):
             "message": str(e)
         }), 500
     
-# ================= GEJALA GET =================
-@app.route("/api/gejala", methods=["GET"])
+ # ==================== KELOLA GEJALA (SESUAI DATABASE ASLI) ====================
+
+# 1. AMBIL DATA GEJALA (GET)
+@app.route('/api/gejala', methods=['GET'])
 def get_all_gejala():
+    db = None
+    cur = None
     try:
         db = get_db()
         cur = db.cursor(dictionary=True)
-        cur.execute("SELECT id, nama_gejala, kategori, bobot FROM gejala ORDER BY id DESC")
-        data_gejala = cur.fetchall()
-        cur.close()
-        return jsonify({"status": "success", "data": data_gejala}), 200
+        # Hanya mengambil id dan nama_gejala sesuai database Anda
+        cur.execute("SELECT id, nama_gejala FROM gejala ORDER BY id DESC")
+        daftar_gejala = cur.fetchall()
+        
+        return jsonify({
+            "status": "success",
+            "data": daftar_gejala
+        }), 200
     except Exception as e:
-        print("GET GEJALA ERROR:", e)
-        return jsonify({"status": "error", "message": "Gagal mengambil data gejala"}), 500
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        if cur: cur.close()
+        if db: db.close()
 
-# ================= GEJALA POST =================
+# 2. TAMBAH DATA GEJALA (POST)
 @app.route('/api/gejala', methods=['POST'])
 def tambah_gejala_baru():
-    conn = None
-    cursor = None
+    db = None
+    cur = None
     try:
         data = request.get_json()
         if not data:
-            return jsonify({"status": "error", "message": "Data kosong"}), 400
-
-        nama_gejala = data.get('nama_gejala')
-        kategori = data.get('kategori')
-        bobot = data.get('bobot')
-
-        if not nama_gejala or not kategori or bobot is None:
-            return jsonify({"status": "error", "message": "Data tidak lengkap"}), 400
-
-        conn = get_db()
-        cursor = conn.cursor()
-        sql = "INSERT INTO gejala (nama_gejala, kategori, bobot) VALUES(%s, %s, %s)"
-        cursor.execute(sql, (nama_gejala, kategori, bobot))
-        conn.commit()
-        return jsonify({"status": "success", "message": "Gejala berhasil ditambahkan"}), 201
-    except Exception as e:
-        if conn: conn.rollback()
-        return jsonify({"status": "error", "message": str(e)}), 500
-    finally:
-        if cursor: cursor.close()
-
-# ================= GEJALA PUT & DELETE =================
-@app.route('/api/gejala/<id>', methods=['PUT', 'DELETE'])
-def handle_gejala_by_id(id):
-    if request.method == 'DELETE':
-        try:
-            conn = get_db()
-            cursor = conn.cursor()
-            cursor.execute("DELETE FROM gejala WHERE id = %s", (id,))
-            conn.commit()
-            if cursor.rowcount == 0:
-                return jsonify({"status": "error", "message": "Data tidak ditemukan"}), 404
-            cursor.close()
-            return jsonify({"status": "success", "message": "Data berhasil dihapus"}), 200
-        except Exception as e:
-            return jsonify({"status": "error", "message": str(e)}), 500
-
-    elif request.method == 'PUT':
-        try:
-            data = request.get_json()
-            nama_gejala = data.get('nama_gejala')
-            kategori = data.get('kategori')
-            bobot = data.get('bobot')
-
-            conn = get_db()
-            cursor = conn.cursor()
-            
-            if kategori is None or bobot is None:
-                sql = "UPDATE gejala SET nama_gejala = %s WHERE id = %s"
-                cursor.execute(sql, (nama_gejala, id))
-            else:
-                sql = "UPDATE gejala SET nama_gejala = %s, kategori = %s, bobot = %s WHERE id = %s"
-                cursor.execute(sql, (nama_gejala, kategori, bobot, id))
-                
-            conn.commit()
-            cursor.close()
-            return jsonify({"status": "success", "message": "Gejala berhasil diperbarui!"}), 200
-        except Exception as e:
-            return jsonify({"status": "error", "message": str(e)}), 500
-
-# ================= DOKTER TOGGLE ANDALAN =================
-@app.route("/api/admin/dokter/<int:id>/toggle-andalan", methods=["POST"])
-def toggle_andalan(id):
-    try:
-        db = get_db()
-        cur = db.cursor(dictionary=True)
-        cur.execute("SELECT is_andalan FROM dokter WHERE id = %s", (id,))
-        dokter = cur.fetchone()
-        if not dokter:
-            return jsonify({"status": "error", "message": "Psikolog tidak ditemukan"}), 404
-            
-        current_status = dokter.get("is_andalan") or 0
-        status_baru = 0 if current_status == 1 else 1
+            return jsonify({"status": "error", "message": "Format data tidak valid!"}), 400
         
-        cur.execute("UPDATE dokter SET is_andalan = %s WHERE id = %s", (status_baru, id))
-        db.commit()
-        cur.close()
-        return jsonify({"status": "success", "message": "Status berhasil diubah", "is_andalan": status_baru}), 200
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+        nama_gejala = data.get('nama_gejala')
 
-# ================= DOKTER GET ANDALAN =================
-@app.route("/api/user/dokter-andalan", methods=["GET"])
-def get_dokter_andalan():
-    try:
+        if not nama_gejala:
+            return jsonify({"status": "error", "message": "Nama gejala wajib diisi!"}), 400
+
         db = get_db()
-        cur = db.cursor(dictionary=True)
-        cur.execute("SELECT id, nama, tags, image_url, harga_diskon FROM dokter WHERE is_andalan = 1 ORDER BY id DESC")
-        data_andalan = cur.fetchall()
-        cur.close()
-        return jsonify({"status": "success", "data": data_andalan}), 200
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-# ================= DOKTER UPDATE =================
-@app.route("/api/admin/dokter/<int:id>/update", methods=["POST"])
-def update_dokter(id):
-    try:
-        data = request.form
-        db = get_db()
-        cur = db.cursor(dictionary=True)
-        query = "UPDATE dokter SET nama=%s, tags=%s, jadwal=%s, harga_awal=%s, harga_diskon=%s, durasi=%s WHERE id=%s"
-        cur.execute(query, (data.get("nama"), data.get("tags"), data.get("jadwal"), 
-                            data.get("harga_awal"), data.get("harga_diskon"), data.get("durasi"), id))
+        cur = db.cursor()
+        
+        # Hanya insert ke kolom nama_gejala
+        cur.execute("INSERT INTO gejala (nama_gejala) VALUES (%s)", (nama_gejala,))
         db.commit()
-        cur.close()
-        return jsonify({"status": "success", "message": "Data berhasil diperbarui"}), 200
+        
+        return jsonify({"status": "success", "message": "Gejala baru berhasil ditambahkan!"}), 201
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+        if db: db.rollback()
+        return jsonify({"status": "error", "message": f"Kendala Database: {str(e)}"}), 500
+    finally:
+        if cur: cur.close()
+        if db: db.close()
 
+# 3. UBAH DATA GEJALA (PUT)
+@app.route('/api/gejala/<int:id>', methods=['PUT'])
+def edit_gejala_by_id(id):
+    db = None
+    cur = None
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"status": "error", "message": "Format data tidak valid!"}), 400
+        
+        nama_gejala = data.get('nama_gejala')
+
+        if not nama_gejala:
+            return jsonify({"status": "error", "message": "Nama gejala tidak boleh kosong!"}), 400
+
+        db = get_db()
+        cur = db.cursor()
+        
+        cur.execute("SELECT id FROM gejala WHERE id = %s", (id,))
+        if not cur.fetchone():
+            return jsonify({"status": "error", "message": "Data tidak ditemukan!"}), 404
+
+        # Update data berdasarkan id
+        cur.execute("UPDATE gejala SET nama_gejala = %s WHERE id = %s", (nama_gejala, id))
+        db.commit()
+        
+        return jsonify({"status": "success", "message": "Gejala berhasil diperbarui!"}), 200
+    except Exception as e:
+        if db: db.rollback()
+        return jsonify({"status": "error", "message": f"Kendala Database: {str(e)}"}), 500
+    finally:
+        if cur: cur.close()
+        if db: db.close()
+# ================= RUN SERVER =================
 if __name__ == "__main__":
-    app.run(debug=True, use_reloader=False, host="0.0.0.0", port=5000)
+    app.run(
+        debug=True,
+        host="0.0.0.0",
+        port=5000
+    )

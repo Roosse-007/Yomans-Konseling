@@ -1,232 +1,152 @@
 import 'dart:convert';
-
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 
-class AuthProvider extends ChangeNotifier {
-
+class AuthProvider with ChangeNotifier {
   // ================= SECURE STORAGE =================
-  final FlutterSecureStorage _storage =
-      const FlutterSecureStorage();
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
-  // ================= PRIVATE STATE =================
+  // ================= STATE =================
   Map<String, dynamic>? _user;
-
   String? _token;
-
   bool _isLoading = true;
+
+  // ================= GETTERS =================
+  Map<String, dynamic>? get user => _user;
+  String? get token => _token;
+  bool get isLoading => _isLoading;
+
+  bool get isLogin => _token != null && _user != null;
+
+  int get userId => _user?['id'] ?? 0;
+
+  String get nama => _user?['username'] ?? '';
+
+  String get username => _user?['username'] ?? '';
+
+  String get email => _user?['email'] ?? '';
+
+  String get fotoProfil => _user?['foto_profil'] ?? '';
+
+  bool get isAdmin => _user?['role'] == 'admin';
+
+  bool get hasToken => _token != null && _token!.isNotEmpty;
 
   // ================= CONSTRUCTOR =================
   AuthProvider() {
     loadSession();
   }
 
-  // ================= GETTERS =================
-
-  Map<String, dynamic>? get user =>
-      _user;
-
-  String? get token =>
-      _token;
-
-  bool get isLoading =>
-      _isLoading;
-
-  bool get isLogin =>
-      _token != null &&
-      _user != null;
-
-  // ================= USER DATA =================
-
-  int get userId {
-
-    if (_user == null) {
-      return 0;
-    }
-
-    return _user!['id'] ?? 0;
-  }
-
-  String get nama {
-
-    if (_user == null) {
-      return '';
-    }
-
-    return _user!['nama'] ?? '';
-  }
-
-  String get email {
-
-    if (_user == null) {
-      return '';
-    }
-
-    return _user!['email'] ?? '';
-  }
-
-  String get username {
-
-    if (_user == null) {
-      return '';
-    }
-
-    return _user!['username'] ?? '';
-  }
-
-  bool get isAdmin {
-
-    if (_user == null) {
-      return false;
-    }
-
-    return _user!['role'] == 'admin';
-  }
-
-  // ================= SAVE LOGIN =================
+  // ================= LOGIN =================
   Future<void> setLogin({
-
     required String token,
-
     required Map<String, dynamic> userData,
-
   }) async {
+    _token = token;
+    _user = userData;
 
-    try {
+    await _storage.write(key: 'token', value: token);
+    await _storage.write(key: 'user', value: jsonEncode(userData));
 
-      // SET STATE
-      _token = token;
-
-      _user = userData;
-
-      // SAVE TOKEN
-      await _storage.write(
-        key: 'token',
-        value: token,
-      );
-
-      // SAVE USER
-      await _storage.write(
-        key: 'user',
-        value: jsonEncode(userData),
-      );
-
-      notifyListeners();
-
-    } catch (e) {
-
-      debugPrint(
-        'SET LOGIN ERROR: $e',
-      );
-    }
+    notifyListeners();
   }
 
   // ================= LOAD SESSION =================
   Future<void> loadSession() async {
+    _isLoading = true;
+    notifyListeners();
 
     try {
+      final savedToken = await _storage.read(key: 'token');
+      final savedUser = await _storage.read(key: 'user');
 
-      _isLoading = true;
-
-      notifyListeners();
-
-      // GET TOKEN
-      final savedToken =
-          await _storage.read(
-        key: 'token',
-      );
-
-      // GET USER
-      final savedUser =
-          await _storage.read(
-        key: 'user',
-      );
-
-      // CHECK SESSION
-      if (
-          savedToken != null &&
-          savedUser != null
-      ) {
-
+      if (savedToken != null && savedUser != null) {
         _token = savedToken;
-
         _user = jsonDecode(savedUser);
       }
-
     } catch (e) {
-
-      debugPrint(
-        'LOAD SESSION ERROR: $e',
-      );
-
       _token = null;
-
       _user = null;
-
-    } finally {
-
-      _isLoading = false;
-
-      notifyListeners();
     }
+
+    _isLoading = false;
+    notifyListeners();
   }
 
-  // ================= UPDATE USER =================
-  Future<void> updateUser(
-    Map<String, dynamic> newUser,
-  ) async {
+  // ================= UPDATE USER (WAJIB HARD REFRESH STATE) =================
+  Future<void> updateUser(Map<String, dynamic> newUser) async {
+    _user = Map<String, dynamic>.from(newUser); // 🔥 HARD COPY biar UI detect perubahan
+
+    await _storage.write(
+      key: 'user',
+      value: jsonEncode(_user),
+    );
+
+    notifyListeners();
+  }
+
+  // ================= UPLOAD FOTO PROFIL =================
+  Future<bool> uploadProfilePicture(XFile pickedFile) async {
+    if (_user == null) return false;
 
     try {
+      var uri = Uri.parse('http://127.0.0.1:5000/api/update_foto');
+      var request = http.MultipartRequest('POST', uri);
 
-      _user = newUser;
+      request.fields['id'] = _user!['id'].toString();
 
-      await _storage.write(
-        key: 'user',
-        value: jsonEncode(newUser),
-      );
+      if (kIsWeb) {
+        var bytes = await pickedFile.readAsBytes();
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'foto_profil',
+            bytes,
+            filename: pickedFile.name,
+          ),
+        );
+      } else {
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            'foto_profil',
+            pickedFile.path,
+          ),
+        );
+      }
 
-      notifyListeners();
+      var streamed = await request.send();
+      var response = await http.Response.fromStream(streamed);
 
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        if (data['foto_profil'] != null) {
+          // 🔥 FORCE UPDATE USER (BIAR UI LANGSUNG GANTI)
+          final updatedUser = Map<String, dynamic>.from(_user!);
+          updatedUser['foto_profil'] = data['foto_profil'];
+
+          await updateUser(updatedUser);
+
+          return true;
+        }
+      }
+
+      return false;
     } catch (e) {
-
-      debugPrint(
-        'UPDATE USER ERROR: $e',
-      );
+      debugPrint("UPLOAD ERROR: $e");
+      return false;
     }
   }
 
   // ================= LOGOUT =================
   Future<void> logout() async {
+    _user = null;
+    _token = null;
 
-    try {
+    await _storage.delete(key: 'token');
+    await _storage.delete(key: 'user');
 
-      _user = null;
-
-      _token = null;
-
-      // DELETE STORAGE
-      await _storage.delete(
-        key: 'token',
-      );
-
-      await _storage.delete(
-        key: 'user',
-      );
-
-      notifyListeners();
-
-    } catch (e) {
-
-      debugPrint(
-        'LOGOUT ERROR: $e',
-      );
-    }
+    notifyListeners();
   }
-
-  // ================= CHECK TOKEN =================
-  // OPTIONAL:
-  // DIGUNAKAN UNTUK CEK TOKEN EXPIRED
-  bool get hasToken =>
-      _token != null &&
-      _token!.isNotEmpty;
 }

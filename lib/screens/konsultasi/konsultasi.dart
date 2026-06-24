@@ -10,7 +10,7 @@ class KonsultasiPage extends StatefulWidget {
 class _KonsultasiPageState extends State<KonsultasiPage> {
   bool isLoading = false;
 
-  // ================= DATA GEJALA UTAMA (TOTAL 27 DATA - SESUAI BACKEND ML) =================
+  // ================= DATA GEJALA UTAMA BAWAAN (DIKURANGI HANYA YANG DOUBLE) =================
   final Map<String, bool> gejala = {
     "gangguan_tidur": false,
     "lelah": false,
@@ -24,7 +24,7 @@ class _KonsultasiPageState extends State<KonsultasiPage> {
     "diabetes": false,
     "gangguan_jantung": false,
     
-    "sulit_tidur": false,
+    // "sulit_tidur" dihapus karena double dengan gangguan_tidur
     "badan_gemetar": false,
     "keringat_berlebih": false,
     "jantung_berdebar": false,
@@ -40,10 +40,10 @@ class _KonsultasiPageState extends State<KonsultasiPage> {
     "tidak_percaya_diri": false,
     "mudah_tersinggung": false,
     "tidak_acuh": false,
-    "bunuh_diri": false, // Tambahan fitur baru sesuai skema backend
+    "bunuh_diri": false, 
   };
 
-  // ================= URUTAN KOLOM KIRI (14 ITEM) =================
+  // ================= URUTAN KOLOM KIRI (DATA BAWAAN - SULIT_TIDUR DIHAPUS) =================
   final List<String> urutanGejalaKiri = [
     "gangguan_tidur",
     "lelah",
@@ -56,12 +56,11 @@ class _KonsultasiPageState extends State<KonsultasiPage> {
     "hipertensi",
     "diabetes",
     "gangguan_jantung",
-    "sulit_tidur",
     "badan_gemetar",
     "keringat_berlebih",
   ];
 
-  // ================= URUTAN KOLOM KANAN (13 ITEM) =================
+  // ================= URUTAN KOLOM KANAN (DATA BAWAAN) =================
   final List<String> urutanGejalaKanan = [
     "jantung_berdebar",
     "sesak_nafas",
@@ -75,73 +74,136 @@ class _KonsultasiPageState extends State<KonsultasiPage> {
     "tidak_percaya_diri",
     "mudah_tersinggung",
     "tidak_acuh",
-    "bunuh_diri",
+    
   ];
 
   // ================= LABEL DISPLAY FRONTEND =================
   final Map<String, String> labels = {
     "gangguan_tidur": "Gangguan tidur",
     "lelah": "Lelah",
-    "sakit_kepala": "Sakit Kepala",
-    "sakit_perut": "Sakit Perut / Kepala",
-    "nyeri_dada": "Nyeri Dada",
+    "sakit_kepala": "Sakit kepala",
+    "sakit_perut": "Sakit perut",
+    "nyeri_dada": "Nyeri dada",
     "otot_tegang": "Nyeri atau tegang pada otot",
     "penurunan_gairah_seksual": "Penurunan gairah seksual",
     "obesitas": "Obesitas",
     "hipertensi": "Hipertensi",
     "diabetes": "Diabetes",
-    "gangguan_jantung": "Gangguan Jantung",
-    "sulit_tidur": "Sulit tidur",
-    "badan_gemetar": "Badan Gemetar",
-    "keringat_berlebih": "Mengeluarkan keringat berlebih",
-    "jantung_berdebar": "Jantung Berdebar",
-    "sesak_nafas": "Sesak Nafas",
+    "gangguan_jantung": "Gangguan jantung",
+    // "sulit_tidur" dihapus dari label display
+    "badan_gemetar": "Badan gemetar",
+    "keringat_berlebih": "Mengeluarkan keringat secara berlebihan",
+    "jantung_berdebar": "Jantung berdebar",
+    "sesak_nafas": "Sesak nafas",
     "pusing": "Pusing",
-    "mulut_kering": "Mulut Terasa Kering",
+    "mulut_kering": "Mulut terasa kering",
     "kesemutan": "Kesemutan",
-    "kehilangan_minat": "Kehilangan Motivasi",
-    "sedih_terus": "Merasa Sedih Terus Menerus",
-    "mudah_menangis": "Mudah Menangis",
-    "merasa_bersalah": "Merasa Bersalah Berlebihan",
-    "tidak_percaya_diri": "Tidak Percaya Diri",
-    "mudah_tersinggung": "Mudah Tersinggung",
-    "tidak_acuh": "Tidak Acuh / Apatis",
-    "bunuh_diri": "Ide atau Pikiran Bunuh Diri",
+    "kehilangan_minat": "Kehilangan ketertarikan atau motivasi",
+    "sedih_terus": "Terus menerus merasa sedih",
+    "merasa_bersalah": "Merasa sangat bersalah dan khawatir berlebihan",
+    "tidak_percaya_diri": "Tidak dapat menikmati hidup",
+    "mudah_tersinggung": "Sulit mengubah keputusan dan mudah tersinggung",
+    "tidak_acuh": "Otot leher dan pundak terasa tegang atau kaku",
+    "mudah_menangis": "Mudah menangis",
+   
   };
+
+  @override
+  void initState() {
+    super.initState();
+    sinkronkanDataDariAdmin();
+  }
+
+  // 🔹 LOGIKA UTAMA SINKRONISASI
+// 🔹 LOGIKA UTAMA SINKRONISASI (DIPERBARUI AGAR PASTI MASUK PALING BAWAH)
+  void sinkronkanDataDariAdmin() async {
+    try {
+      final List<dynamic> dataAdmin = await ApiService.getGejala(); 
+      
+      setState(() {
+        for (var item in dataAdmin) {
+          String labelBaru = item['nama_gejala'];
+          String keyBaru = item['key_gejala'] ?? labelBaru.toLowerCase().trim().replaceAll(' ', '_');
+
+          // Jika data dari admin belum terdaftar di map bawaan, masukkan ke baris akhir
+          if (!gejala.containsKey(keyBaru)) {
+            gejala[keyBaru] = false;
+            labels[keyBaru] = labelBaru;
+
+            // Memasukkan ke kolom yang paling pendek saat itu agar seimbang di paling bawah
+            if (urutanGejalaKiri.length <= urutanGejalaKanan.length) {
+              urutanGejalaKiri.add(keyBaru);
+            } else {
+              urutanGejalaKanan.add(keyBaru);
+            }
+          }
+        }
+      });
+    } catch (e) {
+      print("Gagal menyinkronkan data tambahan dari admin: $e");
+    }
+  }
 
   // Fungsi untuk membersihkan / mengosongkan semua pilihan centang
   void resetCentangGejala() {
     gejala.updateAll((key, value) => false);
   }
 
+  // ================= PERBAIKAN FUNGSI PROSES (ANTI GAJAL / 0%) =================
   void proses() async {
     setState(() => isLoading = true);
 
     List<String> gejalaTerpilih = [];
-    gejala.forEach((key, value) {
-      if (value == true) {
-        gejalaTerpilih.add(key);
-      }
-    });
+
+    // 1. Ambil data asli dari admin yang sudah disinkronkan lewat API
+    try {
+      final List<dynamic> dataAdmin = await ApiService.getGejala();
+
+      gejala.forEach((key, value) {
+        if (value == true) {
+          // Cari data yang cocok di database berdasarkan key atau kecocokan teks label
+          var dataCocok = dataAdmin.firstWhere(
+            (element) {
+              String keyDb = element['key_gejala'] ?? element['nama_gejala'].toString().toLowerCase().trim().replaceAll(' ', '_');
+              return keyDb == key || element['nama_gejala'].toString().toLowerCase().trim() == labels[key]?.toLowerCase().trim();
+            },
+            orElse: () => null,
+          );
+
+          if (dataCocok != null) {
+            // Jika ketemu di database, kirim teks asli dari database murni!
+            gejalaTerpilih.add(dataCocok['nama_gejala'].toString());
+          } else {
+            // Jika tidak ketemu (data bawaan lokal), kirim label lokal bawaan
+            gejalaTerpilih.add(labels[key] ?? key);
+          }
+        }
+      });
+    } catch (e) {
+      print("Gagal mengambil data pembanding dari database, menggunakan fallback lokal: $e");
+      // Fallback jika API gagal saat proses
+      gejala.forEach((key, value) {
+        if (value == true) {
+          gejalaTerpilih.add(labels[key] ?? key);
+        }
+      });
+    }
+
+    // Cetak di debug console untuk memastikan data yang dikirim sudah berupa teks bersih
+    print("DATA YANG DIKIRIM KE FLASK: $gejalaTerpilih");
 
     Map<String, dynamic> requestBody = {"gejala": gejalaTerpilih};
     final res = await ApiService.konsultasi(requestBody);
 
-    // Jika widget sudah ditutup oleh user saat menunggu data dari server, 
-    // hentikan eksekusi kode di bawahnya agar tidak terjadi error BuildContext/setState.
     if (!mounted) return;
 
     setState(() => isLoading = false);
 
-    // Jika fungsi ApiService.konsultasi Anda mengembalikan map kosong/error saat gagal,
-    // kita periksa apakah datanya valid (misal: cek isi map atau status di dalamnya)
     if (res.isNotEmpty && !res.containsKey('error')) { 
       Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => HasilPage(result: res)),
       ).then((_) {
-        // 🔹 DI SINI PROSES RESET TERJADI
-        // Ketika user kembali (pop) dari HasilPage, blok kode ini akan langsung dijalankan
         setState(() {
           resetCentangGejala();
         });
@@ -216,7 +278,6 @@ class _KonsultasiPageState extends State<KonsultasiPage> {
                         },
                         children: List.generate(urutanGejalaKiri.length, (index) {
                           String keyKiri = urutanGejalaKiri[index];
-                          // Proteksi aman jika jumlah array kanan lebih sedikit dibanding array kiri
                           String keyKanan = (index < urutanGejalaKanan.length) ? urutanGejalaKanan[index] : "";
 
                           return TableRow(
@@ -231,7 +292,7 @@ class _KonsultasiPageState extends State<KonsultasiPage> {
                                 padding: const EdgeInsets.only(left: 4.0),
                                 child: keyKanan.isNotEmpty 
                                     ? _buildCheckboxItem(keyKanan) 
-                                    : const SizedBox(), // Kotak kosong agar baris seimbang
+                                    : const SizedBox(), 
                               ),
                             ],
                           );
@@ -278,66 +339,73 @@ class _KonsultasiPageState extends State<KonsultasiPage> {
     );
   }
 
-  // Widget Kotak Centang Putih Bersih (Background & Border Dikunci Putih Saat Kosong)
+  // Widget Kotak Centang (Bisa diklik via teks label & box)
   Widget _buildCheckboxItem(String key) {
     bool isChecked = gejala[key] ?? false;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 22,
-            height: 22,
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white, // Menimpa warna latar belakang bawaan tema Flutter
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Checkbox(
-                value: isChecked,
-                activeColor: const Color(0xFF00642C), 
-                checkColor: Colors.white,            
-                side: BorderSide(
-                  color: isChecked ? Colors.transparent : Colors.white,
-                  width: 2,
-                ),
-                shape: RoundedRectangleBorder(
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        setState(() {
+          gejala[key] = !isChecked;
+        });
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8.0),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 22,
+              height: 22,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white, 
                   borderRadius: BorderRadius.circular(4),
                 ),
-                onChanged: (bool? value) {
-                  if (value != null) {
-                    setState(() {
-                      gejala[key] = value;
-                    });
-                  }
-                },
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Text(
-                labels[key] ?? key,
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: Color(0xFF325433),
-                  fontWeight: FontWeight.w500,
-                  height: 1.2,
+                child: Checkbox(
+                  value: isChecked,
+                  activeColor: const Color(0xFF00642C), 
+                  checkColor: Colors.white,            
+                  side: BorderSide(
+                    color: isChecked ? Colors.transparent : Colors.white,
+                    width: 2,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  onChanged: (bool? value) {
+                    if (value != null) {
+                      setState(() {
+                        gejala[key] = value;
+                      });
+                    }
+                  },
                 ),
               ),
             ),
-          ),
-        ],
+            const SizedBox(width: 8),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  labels[key] ?? key,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF325433),
+                    fontWeight: FontWeight.w500,
+                    height: 1.2,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-// ================= CUSTOM CANVAS BACKGROUND LAYER =================
 class CardBackgroundPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {

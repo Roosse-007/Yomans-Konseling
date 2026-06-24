@@ -1,7 +1,7 @@
-import 'dart:io'; // Diperlukan untuk membaca berkas gambar lokal di platform mobile
-import 'package:flutter/foundation.dart'; // Diperlukan untuk mendeteksi kIsWeb
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart'; // Import package pengambil gambar
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:yomans_konseling/providers/auth_provider.dart';
 import 'package:yomans_konseling/screens/berita/informasi.dart';
@@ -10,16 +10,11 @@ import 'package:yomans_konseling/screens/halaman_akun/ganti_password.dart';
 import 'package:yomans_konseling/screens/history_boking/history_boking.dart';
 import 'package:yomans_konseling/screens/home/home.dart';
 import 'package:yomans_konseling/screens/auth/login.dart';
-
-// 💡 PASTIKAN PATH IMPORT DI BAWAH INI SUDAH SESUAI DENGAN PROYEKMU
-// import 'package:yomans_konseling/screens/home_page.dart'; 
-// import 'package:yomans_konseling/screens/informasi.dart';
 import 'notification_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
-  // MENGUBAH TEMA WARNA UTAMA MENJADI HIJAU SESUAI HALAMAN BOOKING
   static const Color primaryGreen = Color(0xFF1B5E20);
 
   @override
@@ -28,312 +23,253 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final ImagePicker _picker = ImagePicker();
-  
-  // Set default ke 3 karena halaman ini adalah indeks "Profile"
-  int _currentIndex = 3; 
+  final int _currentIndex = 3; // Jadikan final karena ini halaman profile tetap (index 3)
 
-  // FUNGSI UNTUK MEMILIH GAMBAR YANG MENDUKUNG MOBILE DAN WEB
-  Future<void> _pickImage(AuthProvider authProvider) async {
-    try {
-      final XFile? pickedFile = await _picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 80, // Kompres kualitas gambar agar tidak terlalu berat
-      );
+  Uint8List? _webImageBytes; // Preview lokal langsung sebelum/selama upload
 
-      if (pickedFile != null) {
-        // Ambil data map user lama
-        Map<String, dynamic> updatedData = {
-          ...authProvider.user ?? {},
-        };
+Future<void> _pickImage(AuthProvider authProvider) async {
+  final XFile? pickedFile = await _picker.pickImage(
+    source: ImageSource.gallery,
+    imageQuality: 80,
+  );
 
-        // Simpan path gambar (di web ini akan berupa Blob URL, di mobile berupa local path)
-        updatedData['image_url'] = pickedFile.path;
+  if (pickedFile == null) return;
 
-        // Perbarui data local state & Secure Storage
-        await authProvider.updateUser(updatedData);
+  // 🔥 Baca file sebagai bytes agar aman di Web & Mobile
+  final Uint8List imageBytes = await pickedFile.readAsBytes();
 
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Foto profil berhasil diperbarui')),
-          );
-        }
-      }
-    } catch (e) {
-      debugPrint("Gagal mengambil gambar: $e");
-    }
+  setState(() {
+    _webImageBytes = imageBytes; // Set preview langsung menggunakan bytes
+  });
+
+  if (!mounted) return;
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text('Mengupload foto...')),
+  );
+
+  bool success = await authProvider.uploadProfilePicture(pickedFile);
+
+  if (!mounted) return;
+
+  if (success) {
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Foto berhasil diperbarui')),
+    );
+
+    setState(() {
+      _webImageBytes = null; // Reset preview setelah server sukses diperbarui
+    });
+  } else {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Gagal upload foto')),
+    );
+    setState(() {
+      _webImageBytes = null;
+    });
   }
+}
 
   void _showSignOutDialog(BuildContext context) {
-  showDialog(
-    context: context,
-    builder: (BuildContext context) {
-      return AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        title: const Text(
-          'Sign Out',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        content: const Text(
-          'Apakah Anda yakin ingin keluar dari akun ini?',
-        ),
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text("Sign Out"),
+        content: const Text("Yakin ingin keluar?"),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text(
-              'Batal',
-              style: TextStyle(color: Colors.grey),
-            ),
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text("Batal"),
           ),
           TextButton(
             onPressed: () async {
-              // Tutup dialog
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
+              await Provider.of<AuthProvider>(context, listen: false).logout();
 
-              // Logout dari provider
-              await Provider.of<AuthProvider>(
-                context,
-                listen: false,
-              ).logout();
-
-              // Pindah ke halaman login
               if (context.mounted) {
                 Navigator.pushAndRemoveUntil(
                   context,
-                  MaterialPageRoute(
-                    builder: (context) => const LoginPage(),
-                  ),
+                  MaterialPageRoute(builder: (_) => const LoginPage()),
                   (route) => false,
                 );
               }
             },
-            child: const Text(
-              'Keluar',
-              style: TextStyle(
-                color: Colors.red,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            child: const Text("Keluar", style: TextStyle(color: Colors.red)),
           ),
         ],
-      );
-    },
-  );
-}
-  // LOGIKA PINTAR UNTUK MENAMPILKAN GAMBAR (Mencegah crash 'js_allow_interop' di Web)
-  ImageProvider _getProfileImage(String path) {
-    if (path.startsWith('http') || path.startsWith('https')) {
+      ),
+    );
+  }
+
+  ImageProvider _imageProvider(String path) {
+    if (path.startsWith('http')) {
       return NetworkImage(path);
-    } else if (kIsWeb || path.startsWith('blob:')) {
-      // Di Web, path berupa 'blob:http...' harus dibaca sebagai NetworkImage
-      return NetworkImage(path);
-    } else {
-      // Di Android / iOS asli, baru kita panggil FileImage
+    } else if (path.isNotEmpty) {
       return FileImage(File(path));
+    } else {
+      return const AssetImage('assets/images/default_avatar.png'); // Sediakan avatar default jika kosong
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
-    
-    final String namaUser = authProvider.nama.isNotEmpty ? authProvider.nama : 'Nama Pengguna';
-    final String peranUser = authProvider.user?['role'] ?? 'Client';
-    final String fotoUser = authProvider.user?['image_url'] ?? 'https://via.placeholder.com/150';
+
+    final user = authProvider.user ?? {};
+    final namaUser = user['username'] ?? 'User';
+    final peranUser = user['role'] ?? 'user';
+    final fotoUser = user['foto_profil'] ?? '';
 
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
+        title: const Text("Profile", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+        centerTitle: true,
         backgroundColor: Colors.white,
         elevation: 0,
-        centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_ios_new,
-            color: Colors.black,
-            size: 25,
-          ),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'Profile',
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 18),
-        ),
+        iconTheme: const IconThemeData(color: Colors.black),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24.0),
+        padding: const EdgeInsets.all(24),
         child: Column(
           children: [
-            const SizedBox(height: 20),
-            
-            // --- FOTO PROFIL USER (SUDAH DIPERBAIKI) ---
+            const SizedBox(height: 10),
+
+            // ================= PROFILE IMAGE WORKMANSHIP =================
             Center(
               child: Stack(
                 children: [
-                  Container(
-                    width: 110,
-                    height: 110,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.grey.shade200, width: 3),
-                      image: DecorationImage(
-                        image: _getProfileImage(fotoUser), // Menggunakan penangan gambar dinamis aman
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                  ),
+                 CircleAvatar(
+  radius: 55,
+  backgroundColor: Colors.grey.shade200,
+  // 🔥 PRIORITAS: bytes lokal -> network URL -> fallback default
+  backgroundImage: _webImageBytes != null
+      ? MemoryImage(_webImageBytes!) // Aman digunakan di Web maupun Mobile
+      : (fotoUser.startsWith('http')
+          ? NetworkImage("$fotoUser?cache=${DateTime.now().millisecondsSinceEpoch}")
+          : const AssetImage('assets/images/default_avatar.png') as ImageProvider),
+),
                   Positioned(
                     bottom: 0,
-                    right: 2,
-                    child: MouseRegion(
-                      cursor: SystemMouseCursors.click, // <-- MERUBAH KURSOR MENJADI TELUNJUK SAAT DIATAS ICON EDIT
-                      child: GestureDetector(
-                        onTap: () => _pickImage(authProvider),
-                        child: const CircleAvatar(
-                          radius: 15,
-                          backgroundColor: ProfileScreen.primaryGreen,
-                          child: Icon(Icons.edit, size: 14, color: Colors.white),
-                        ),
+                    right: 0,
+                    child: GestureDetector(
+                      onTap: () => _pickImage(authProvider),
+                      child: const CircleAvatar(
+                        radius: 16,
+                        backgroundColor: ProfileScreen.primaryGreen,
+                        child: Icon(Icons.edit, size: 14, color: Colors.white),
                       ),
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
-            
+
+            const SizedBox(height: 15),
+
             Text(
               namaUser,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1A1A1A)),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
             ),
-            const SizedBox(height: 4),
             Text(
-              peranUser,
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+              peranUser.toUpperCase(), 
+              style: const TextStyle(color: Colors.grey, letterSpacing: 1.1, fontSize: 12),
             ),
-            const SizedBox(height: 32),
-            
-            // --- MENU NAVIGASI ---
-            ProfileMenuItem(
-              icon: Icons.person_outline,
-              title: 'Edit Profil',
+
+            const SizedBox(height: 30),
+
+            // ================= MENU LIST =================
+            ListTile(
+              leading: const Icon(Icons.person, color: ProfileScreen.primaryGreen),
+              title: const Text("Edit Profile"),
+              trailing: const Icon(Icons.chevron_right),
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const EditProfileScreen()),
+                  MaterialPageRoute(builder: (_) => const EditProfileScreen()),
                 );
               },
             ),
-            ProfileMenuItem(
-              icon: Icons.notifications_none_outlined,
-              title: 'Notifikasi',
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.notifications, color: ProfileScreen.primaryGreen),
+              title: const Text("Notifikasi"),
+              trailing: const Icon(Icons.chevron_right),
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const NotificationScreen()),
+                  MaterialPageRoute(builder: (_) => const NotificationScreen()),
                 );
               },
             ),
-            ProfileMenuItem(
-              icon: Icons.lock_open_outlined,
-              title: 'Ganti Password',
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.lock, color: ProfileScreen.primaryGreen),
+              title: const Text("Ganti Password"),
+              trailing: const Icon(Icons.chevron_right),
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const ChangePasswordScreen()),
+                  MaterialPageRoute(builder: (_) => const ChangePasswordScreen()),
                 );
               },
             ),
-            
-            const SizedBox(height: 32),
-            
-            // --- TOMBOL SIGN OUT ---
+
+            const SizedBox(height: 40),
+
+            // ================= LOGOUT BUTTON =================
             SizedBox(
               width: double.infinity,
-              height: 46,
-              child: ElevatedButton.icon(
-                onPressed: () => _showSignOutDialog(context),
-                icon: const Icon(Icons.logout, color: Colors.white, size: 16),
-                label: const Text(
-                  'Logout',
-                  style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
-                ),
+              height: 48,
+              child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: ProfileScreen.primaryGreen,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                  foregroundColor: Colors.white, // Warna teks jadi putih
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
+                onPressed: () => _showSignOutDialog(context),
+                child: const Text("Logout", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               ),
             ),
           ],
         ),
       ),
       
-      // ================= NAVIGATION BAR BAWAH =================
+      // ================= BOTTOM NAVIGATION BAR =================
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: const Color(0xFF2E6A3F), 
+        selectedItemColor: ProfileScreen.primaryGreen,
         unselectedItemColor: Colors.grey,
-        showUnselectedLabels: true,
+        currentIndex: _currentIndex,
         onTap: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
+          if (index == _currentIndex) return; // Jika klik menu yang sama, abaikan.
+
           if (index == 0) {
-            // Tambahkan navigasi balik ke Beranda jika diperlukan
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => HomePage()));
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => HomePage()),
+            );
           } else if (index == 1) {
-            // Hindari error pemanggilan dengan memastikan widget Informasi() sudah diimport
-            Navigator.push(context, MaterialPageRoute(builder: (_) => Informasi()));
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => Informasi()),
+            );
           } else if (index == 2) {
-            // Hindari error pemanggilan dengan memastikan widget HomePage() sudah diimport
-            // 
-            Navigator.push(context, MaterialPageRoute(builder: (_) => HistoryBookingPage())); 
-          } else if (index == 3) {
-            // Karena ini sudah di halaman ProfileScreen, tidak perlu push kembali ke diri sendiri
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => HistoryBookingPage()),
+            );
           }
         },
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: "Beranda"),
-          BottomNavigationBarItem(icon: Icon(Icons.book_outlined), label: "Informasi"),
-          BottomNavigationBarItem(icon: Icon(Icons.receipt_long_rounded), label: "Riwayat"),
-          BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: "Profile"),
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: "Beranda"),
+          BottomNavigationBarItem(icon: Icon(Icons.book), label: "Informasi"),
+          BottomNavigationBarItem(icon: Icon(Icons.history), label: "Riwayat"),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
         ],
       ),
-    );
-  }
-}
-
-// Komponen Reusable Widget khusus ListTile Menu
-class ProfileMenuItem extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final VoidCallback onTap;
-
-  const ProfileMenuItem({
-    super.key,
-    required this.icon,
-    required this.title,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(vertical: 2),
-      leading: CircleAvatar(
-        radius: 16,
-        backgroundColor: const Color(0xFFE8F5E9),
-        child: Icon(icon, color: ProfileScreen.primaryGreen, size: 16),
-      ),
-      title: Text(
-        title,
-        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF1A1A1A)),
-      ),
-      trailing: const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
     );
   }
 }
