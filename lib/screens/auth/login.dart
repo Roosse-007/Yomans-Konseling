@@ -22,6 +22,7 @@ class _LoginPageState extends State<LoginPage> {
   // ================= CONTROLLER =================
   final TextEditingController user = TextEditingController();
   final TextEditingController pass = TextEditingController();
+  final FocusNode passFocus = FocusNode();
 
   // ================= STATE =================
   bool isLoading = false;
@@ -100,27 +101,32 @@ class _LoginPageState extends State<LoginPage> {
             ),
           );
         }
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              res != null
-                  ? (res['message'] ?? "Login gagal")
-                  : "Server tidak merespon",
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      debugPrint("===== LOGIN ERROR =====");
-      debugPrint(e.toString());
+      }else {
+  pass.clear();
+  passFocus.requestFocus();// reset password
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Terjadi kesalahan: $e"),
-        ),
-      );
-    } finally {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(
+        res != null
+            ? (res['message'] ?? "Login gagal")
+            : "Server tidak merespon",
+      ),
+    ),
+  );
+}
+    } catch (e) {
+  debugPrint("===== LOGIN ERROR =====");
+  debugPrint(e.toString());
+
+  pass.clear(); // reset password
+
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text("Terjadi kesalahan: $e"),
+    ),
+  );
+} finally {
       if (mounted) {
         setState(() {
           isLoading = false;
@@ -258,6 +264,7 @@ class _LoginPageState extends State<LoginPage> {
                         borderRadius: BorderRadius.circular(8),
                         child: TextField(
                           controller: pass,
+                          focusNode: passFocus,
                           obscureText: obscurePassword,
                           decoration: InputDecoration(
                             hintText: "masukkan password",

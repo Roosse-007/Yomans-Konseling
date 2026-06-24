@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:yomans_konseling/screens/dokter/PilihPsikologPage.dart';
 
-
 class HasilPage extends StatelessWidget {
   final Map<String, dynamic> result;
 
-  HasilPage({
+  const HasilPage({
+    Key? key,
     required this.result,
-  });
+  }) : super(key: key);
 
-  // ================= DATA MAPPING DESKRIPSI & SARAN =================
-  final Map<String, Map<String, String>> hasilData = {
+  // ================= DATA MAPPING DESKRIPSI & SARAN INDONESIA =================
+  final Map<String, Map<String, String>> hasilData = const {
     "stres": {
       "deskripsi":
           "Sistem mendeteksi adanya indikasi gangguan psikologis berdasarkan kecocokan gejala yang Anda pilih.",
@@ -33,32 +33,45 @@ class HasilPage extends StatelessWidget {
       "deskripsi":
           "Kondisi kesehatan mental Anda saat ini berada dalam batas normal dan stabil.",
       "saran":
-          "Tetap pertahaman pola hidup sehat, kelola pikiran positif Anda, luangkan waktu untuk hobi, dan jaga komunikasi yang baik dengan orang-orang terdekat."
+          "Tetap pertahankan pola hidup sehat, kelola pikiran positif Anda, luangkan waktu untuk hobi, dan jaga komunikasi yang baik dengan orang-orang terdekat."
     }
   };
 
   @override
   Widget build(BuildContext context) {
-    // 1. Ambil nilai hasil utama dari backend
+    // 1. Parsing Nilai Diagnosis Utama
     final String hasilRaw = result['hasil'] ?? 
                             (result['data'] is Map ? result['data']['hasil'] : null) ?? 
                             "normal";
     final String hasilKey = hasilRaw.toLowerCase().trim();
     final dataLokal = hasilData[hasilKey];
 
-    // 2. Ambil nilai persentase secara dinamis dari JSON response Flask
-    final String stressPct = result['stress_percentage'] ?? "0%";
-    final String depresiPct = result['depresi_percentage'] ?? "0%";
-    final String kecemasanPct = result['kecemasan_percentage'] ?? "0%";
+    // 2. Parsing Tingkat Keparahan (Level) - Dipaksa ke String dengan aman (.toString())
+    final String levelTampilan = (result['level'] ?? 
+                                 (result['data'] is Map ? result['data']['level'] : null) ?? 
+                                 "Normal").toString();
 
-    // 3. Sinkronisasi teks deskripsi & edukasi saran
+    // 3. Parsing Persentase Dinamis - FIX ANTI ERROR TYPE CASTING (int ke String)
+    final String stressPct = result['stress_percentage'] != null 
+        ? "${result['stress_percentage']}%" 
+        : "0%";
+        
+    final String depresiPct = result['depresi_percentage'] != null 
+        ? "${result['depresi_percentage']}%" 
+        : "0%";
+        
+    final String kecemasanPct = result['kecemasan_percentage'] != null 
+        ? "${result['kecemasan_percentage']}%" 
+        : "0%";
+
+    // 4. Sinkronisasi Konten Teks
     final String deskripsiTampilan = dataLokal?['deskripsi'] ?? "Sistem mendeteksi adanya indikasi kondisi psikologis.";
     final String saranTampilan = result['saran'] ?? 
                                  (result['data'] is Map ? result['data']['saran'] : null) ?? 
                                  dataLokal?['saran'] ?? 
-                                 "Tidak ada edukasi.";
+                                 "Tidak ada edukasi tambahan.";
 
-    // 4. Format judul teks (stres -> Stress)
+    // 5. Format Judul Hasil Tampilan
     String judulHasil = hasilRaw.isNotEmpty 
         ? "${hasilRaw[0].toUpperCase()}${hasilRaw.substring(1)}" 
         : "Tidak Diketahui";
@@ -91,12 +104,12 @@ class HasilPage extends StatelessWidget {
               ),
             ),
 
-            // ================= MAIN CONTAINER SCROLLABLE =================
+            // ================= SCROLLABLE CONTENT =================
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 children: [
-                  // CARD 1: BLOK DIAGNOSIS UTAMA (HIJAU TUA EMERALD)
+                  // CARD 1: BLOK DIAGNOSIS EMERALD GREEN
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(20),
@@ -115,14 +128,31 @@ class HasilPage extends StatelessWidget {
                             color: Colors.white,
                           ),
                         ),
+                        const SizedBox(height: 6),
+                        
+                        // Menampilkan Label Tingkat/Level Dinamis dengan Operator Ternary Valid
+                        Text(
+                          "Tingkat : $levelTampilan",
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: levelTampilan.toLowerCase() == 'berat' 
+                                ? Colors.redAccent[100] 
+                                : (levelTampilan.toLowerCase() == 'sedang' 
+                                    ? Colors.orangeAccent[100] 
+                                    : Colors.white),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        const Divider(color: Colors.white24, height: 1),
                         const SizedBox(height: 12),
                         
-                        // Menampilkan data persentase dinamis dari backend
+                        // Nilai Persentase Riil Hasil Sinkronisasi
                         Text("Stress : $stressPct", style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.4)),
                         Text("Depresi : $depresiPct", style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.4)),
                         Text("Gangguan Kecemasan : $kecemasanPct", style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.4)),
                         
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 20),
                         Text(
                           deskripsiTampilan,
                           style: const TextStyle(
@@ -132,18 +162,18 @@ class HasilPage extends StatelessWidget {
                             fontWeight: FontWeight.w500,
                           ),
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 16),
                         const Text(
-                          "Anda disarankan berkonsultasi langsung ke Psikolog, Agar anda dapat menegetahui kondisi kesehatan mental secara lebih detail.",
+                          "Anda disarankan berkonsultasi langsung ke Psikolog, agar Anda dapat mengetahui kondisi kesehatan mental secara lebih detail.",
                           style: TextStyle(
                             fontSize: 13,
                             color: Colors.white,
                             height: 1.4,
                           ),
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 20),
 
-                        // CONTAINER ACTIONS BUTTON
+                        // ACTION BUTTONS
                         Row(
                           children: [
                             Expanded(
@@ -179,9 +209,7 @@ class HasilPage extends StatelessWidget {
                               child: SizedBox(
                                 height: 38,
                                 child: ElevatedButton(
-                                  onPressed: () {
-                                    Navigator.pop(context);
-                                  },
+                                  onPressed: () => Navigator.pop(context),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: const Color(0xFFD3EAD0),
                                     elevation: 0,
@@ -207,7 +235,7 @@ class HasilPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
 
-                  // CARD 2: BOX EDUKASI (HIJAU MUDA PASTEL)
+                  // CARD 2: BOX EDUKASI PASTEL
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(18),

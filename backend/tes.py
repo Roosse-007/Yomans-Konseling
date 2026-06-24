@@ -20,8 +20,8 @@ from flask_jwt_extended import (
 load_dotenv()
 
 app = Flask(__name__)
-# Cari bagian ================= CORS ================= di kodemu, lalu ganti menjadi:
 CORS(app)
+# Ambil jalur direktori tempat file app.py ini berada
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -1304,6 +1304,39 @@ def get_all_gejala():
         return jsonify({"status": "error", "message": "Gagal mengambil data gejala"}), 500
 
 
+@app.route("/api/gejala", methods=["POST"])
+def tambah_gejala_baru():
+    """Menambahkan data gejala baru dari form dialog Flutter"""
+    try:
+        data = request.get_json(silent=True)
+        if not data:
+            return jsonify({"status": "error", "message": "Data kosong"}), 400
+            
+        nama = data.get("nama_gejala")
+        kategori = data.get("kategori", "stres")
+        bobot = data.get("bobot", 2)
+        
+        if not nama:
+            return jsonify({"status": "error", "message": "Nama gejala wajib diisi"}), 400
+            
+        db = get_db()
+        cur = db.cursor(dictionary=True)
+        
+        cur.execute(
+            "INSERT INTO gejala (nama_gejala, kategori, bobot) VALUES (%s, %s, %s)",
+            (nama, kategori, int(bobot))
+        )
+        db.commit()
+        cur.close()
+        
+        return jsonify({
+            "status": "success",
+            "message": "Gejala baru berhasil ditambahkan"
+        }), 201
+    except Exception as e:
+        print("POST GEJALA ERROR:", e)
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 
 @app.route("/api/gejala/<int:gejala_id>", methods=["PUT"])
 def update_gejala_existing(gejala_id):
@@ -1803,7 +1836,29 @@ def delete_dokter(id):
             "message": str(e)
         }), 500
     
+ # ==================== KELOLA GEJALA (SESUAI DATABASE ASLI) ====================
 
+# 1. AMBIL DATA GEJALA (GET)
+@app.route('/api/gejala', methods=['GET'])
+def get_all_gejala():
+    db = None
+    cur = None
+    try:
+        db = get_db()
+        cur = db.cursor(dictionary=True)
+        # Hanya mengambil id dan nama_gejala sesuai database Anda
+        cur.execute("SELECT id, nama_gejala FROM gejala ORDER BY id DESC")
+        daftar_gejala = cur.fetchall()
+        
+        return jsonify({
+            "status": "success",
+            "data": daftar_gejala
+        }), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        if cur: cur.close()
+        if db: db.close()
 
 # 2. TAMBAH DATA GEJALA (POST)
 @app.route('/api/gejala', methods=['POST'])
@@ -1836,83 +1891,42 @@ def tambah_gejala_baru():
         if db: db.close()
 
 # 3. UBAH DATA GEJALA (PUT)
-from flask import request, jsonify  # Pastikan request sudah di-import di bagian atas file app.py
+@app.route('/api/gejala/<int:id>', methods=['PUT'])
+def edit_gejala_by_id(id):
+    db = None
+    cur = None
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"status": "error", "message": "Format data tidak valid!"}), 400
+        
+        nama_gejala = data.get('nama_gejala')
 
-@app.route('/api/gejala/<id>', methods=['PUT', 'DELETE'])
-def handle_gejala_by_id(id):
-    
-    # ==========================================
-    # LOGIKA UNTUK HAPUS DATA (DELETE)
-    # ==========================================
-    if request.method == 'DELETE':
-        try:
-            conn = get_db()
-            cursor = conn.cursor()
-            cursor.execute("DELETE FROM gejala WHERE id = %s", (id,))
-            conn.commit()
-            
-            # Opsional: Cek apakah data yang mau dihapus memang ada
-            if cursor.rowcount == 0:
-                cursor.close()
-                conn.close()
-                return jsonify({"status": "error", "message": "Data gejala tidak ditemukan!"}), 404
-                
-            cursor.close()
-            conn.close()
-            return jsonify({"status": "success", "message": "Data gejala berhasil dihapus!"}), 200
-        except Exception as e:
-            print(f"ERROR PADA DELETE GEJALA: {str(e)}")
-            return jsonify({"status": "error", "message": f"Server Error: {str(e)}"}), 500
+        if not nama_gejala:
+            return jsonify({"status": "error", "message": "Nama gejala tidak boleh kosong!"}), 400
 
-    # ==========================================
-    # LOGIKA UNTUK EDIT DATA (PUT)
-    # ==========================================
-    elif request.method == 'PUT':
-        try:
-            # Ambil data JSON dari request Flutter
-            data = request.get_json()
-            if not data:
-                return jsonify({"status": "error", "message": "Data tidak ditemukan!"}), 400
-                
-            nama_gejala = data.get('nama_gejala')
-            kategori = data.get('kategori')
-            bobot = data.get('bobot')
+        db = get_db()
+        cur = db.cursor()
+        
+        cur.execute("SELECT id FROM gejala WHERE id = %s", (id,))
+        if not cur.fetchone():
+            return jsonify({"status": "error", "message": "Data tidak ditemukan!"}), 404
 
-            if not nama_gejala:
-                return jsonify({"status": "error", "message": "Nama gejala wajib diisi!"}), 400
-
-            conn = get_db()
-            cursor = conn.cursor()
-
-            # JIKA FLUTTER HANYA MENGUPDATE NAMA GEJALA:
-            if kategori is None or bobot is None:
-                sql = "UPDATE gejala SET nama_gejala = %s WHERE id = %s"
-                cursor.execute(sql, (nama_gejala, id))
-            # JIKA FLUTTER MENGUPDATE SEMUA FIELD:
-            else:
-                sql = "UPDATE gejala SET nama_gejala = %s, kategori = %s, bobot = %s WHERE id = %s"
-                cursor.execute(sql, (nama_gejala, kategori, bobot, id))
-                
-            conn.commit()
-            
-            if cursor.rowcount == 0:
-                cursor.close()
-                conn.close()
-                return jsonify({"status": "error", "message": "Data tidak ditemukan atau tidak ada perubahan"}), 404
-
-            cursor.close()
-            conn.close()
-            
-            return jsonify({"status": "success", "message": "Gejala berhasil diperbarui!"}), 200
-
-        except Exception as e:
-            print(f"ERROR PADA PUT GEJALA: {str(e)}")
-            return jsonify({"status": "error", "message": f"Server Error: {str(e)}"}), 500
+        # Update data berdasarkan id
+        cur.execute("UPDATE gejala SET nama_gejala = %s WHERE id = %s", (nama_gejala, id))
+        db.commit()
+        
+        return jsonify({"status": "success", "message": "Gejala berhasil diperbarui!"}), 200
+    except Exception as e:
+        if db: db.rollback()
+        return jsonify({"status": "error", "message": f"Kendala Database: {str(e)}"}), 500
+    finally:
+        if cur: cur.close()
+        if db: db.close()
 # ================= RUN SERVER =================
 if __name__ == "__main__":
     app.run(
         debug=True,
-        use_reloader=False,
         host="0.0.0.0",
         port=5000
     )
