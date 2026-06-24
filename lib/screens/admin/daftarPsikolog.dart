@@ -5,6 +5,9 @@ import 'package:provider/provider.dart';
 import 'package:yomans_konseling/providers/dokter_provider.dart';
 import 'package:yomans_konseling/screens/admin/kelola_jadwal.dart';
 import 'package:yomans_konseling/screens/admin/tambahDataPsikolog.dart';
+import 'package:yomans_konseling/screens/admin/editDataPsikolog.dart'; // <--- Sesuaikan dengan path file Anda
+import 'package:http/http.dart' as http; 
+import 'dart:convert'; // <--- WAJIB DITAMBAHKAN UNTUK DECODE JSON MESSAGES
 
 class DaftarPsikologAdminPage extends StatefulWidget {
   const DaftarPsikologAdminPage({Key? key}) : super(key: key);
@@ -16,6 +19,7 @@ class DaftarPsikologAdminPage extends StatefulWidget {
 
 class _DaftarPsikologAdminPageState
     extends State<DaftarPsikologAdminPage> {
+      int _cacheBuster = 0;
   @override
   void initState() {
     super.initState();
@@ -26,6 +30,74 @@ class _DaftarPsikologAdminPageState
         listen: false,
       ).fetchDokter();
     });
+  }
+
+  // ================= FUNGSI TOGGLE DENGAN NOTIFIKASI DINAMIS =================
+ Future<void> _prosesToggleAndalan(
+  int id,
+  DokterProvider provider,
+) async {
+
+  try {
+
+    final response = await http.post(
+      Uri.parse(
+        "http://127.0.0.1:5000/api/admin/dokter/$id/toggle-andalan",
+      ),
+    );
+
+    print(
+      "STATUS TOGGLE = ${response.statusCode}",
+    );
+
+    print(
+      "BODY TOGGLE = ${response.body}",
+    );
+
+    if (response.statusCode != 200) {
+
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
+        SnackBar(
+          content: Text(
+            "Server Error ${response.statusCode}",
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+
+      return;
+    }
+
+    final data =
+        jsonDecode(response.body);
+
+    await provider.fetchDokter();
+
+    if (mounted) {
+
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
+        SnackBar(
+          content: Text(
+            data['message'] ??
+                "Status andalan diperbarui",
+          ),
+          backgroundColor:
+              const Color(
+            0xFF2E7D32,
+          ),
+        ),
+      );
+    }
+
+  } catch (e) {
+
+    print(
+      "TOGGLE ERROR = $e",
+    );
+
+  }
   }
 
   @override
@@ -94,6 +166,9 @@ if (dokter['tags'] != null &&
       .map((e) => e.trim())
       .toList();
 }
+
+                // Cek status andalan (jika bernilai 1 berarti termasuk psikolog andalan)
+                final bool isAndalan = dokter['is_andalan'] == 1 || dokter['is_andalan'] == '1';
 
                 return Container(
                   margin: const EdgeInsets.only(
@@ -241,21 +316,50 @@ if (dokter['tags'] != null &&
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
+                          // --- TOMBOL IKON BINTANG (TOGGLE ANDALAN) ---
                               IconButton(
-                                icon: const Icon(
-                                  Icons.edit_note_rounded,
-                                  color: Colors.blue,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            icon: Icon(
+                              isAndalan ? Icons.star_rounded : Icons.star_border_rounded,
+                              color: isAndalan ? Colors.amber : const Color(0xFFA0AEC0),
                                   size: 28,
                                 ),
                                 onPressed: () {
-                                  print("Edit data: ${dokter['nama']}");
-                                },
-                              ),
+                              _prosesToggleAndalan(dokter['id'], dokterProvider);
+                            },
+                          ),
+                          const SizedBox(width: 6),
+
+                          // --- TOMBOL EDIT ---
+                       IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          icon: const Icon(Icons.edit_note_rounded, color: Colors.blue, size: 28),
+                          onPressed: () async {
+                            // 1. Awal dari fungsi async
+                            final result = await Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => EditPsikologPage(dokter: dokter)),
+                            );
+
+                            // 2. Logika IF diletakkan di DALAM onPressed
+                            if (result == true) {
+                              setState(() {
+                                _cacheBuster = DateTime.now().millisecondsSinceEpoch;
+                              });
+                              dokterProvider.fetchDokter();
+                            }
+                          }, // <--- Pastikan ada tanda koma setelah kurung kurawal penutup onPressed
+                        ),
+                          // --- TOMBOL JADWAL ---
                               IconButton(
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
                                 icon: const Icon(
                                   Icons.calendar_month,
                                   color: Colors.green,
-                                  size: 26,
+                              size: 24,
                                 ),
                                onPressed: () {
 
@@ -271,7 +375,12 @@ if (dokter['tags'] != null &&
 
                             },
                               ),
+                          const SizedBox(width: 6),
+
+                          // --- TOMBOL HAPUS ---
                               IconButton(
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
                                 icon: const Icon(
                                   Icons.delete_outline_rounded,
                                   color: Colors.red,
@@ -292,6 +401,7 @@ if (dokter['tags'] != null &&
                     ); // Penutup Container item
                   }, // Penutup itemBuilder
                 ), // Penutup ListView.builder
+
       // ================= BUTTON BAWAH =================
       bottomNavigationBar: Container(
         padding: const EdgeInsets.all(16),
@@ -357,37 +467,63 @@ if (dokter['tags'] != null &&
     );
   }
 
-  // ================= BUILD IMAGE =================
+  // ================= BUILD IMAGE (VERSI TERBAIK & BERSIH) =================
   Widget _buildImage(Map<String, dynamic> dokter) {
-  print("IMAGE URL: ${dokter['image_url']}");
+    final String? fotoPath = dokter['image_url']?.toString();
 
-  if (dokter['image_url'] != null &&
-      dokter['image_url'].toString().isNotEmpty) {
-    return Image.network(
-      dokter['image_url'].toString(),
-      fit: BoxFit.contain,
+    if (fotoPath == null || fotoPath.isEmpty) {
+      return const Icon(
+        Icons.person,
+        size: 40,
+        color: Color(0xFFA0AEC0),
+      );
+    }
+
+    if (fotoPath.startsWith('http')) {
+      final String webSafeUrl = fotoPath.replaceAll('http://127.0.0.1:', 'http://localhost:');
+
+      return SizedBox(
+  width: 75,
+  height: 75,
+  child: ClipRRect(
+    borderRadius: BorderRadius.circular(8),
+    child: Image.network(
+      // TAMBAHKAN INI: Menambahkan parameter unik (?t=...)
+      // Jika url sudah memiliki query, ganti '&' menjadi '?'
+      "$webSafeUrl${webSafeUrl.contains('?') ? '&' : '?'}v=$_cacheBuster",
+  fit: BoxFit.cover,
+      // Penting: agar cache tidak terus menerus digunakan oleh Image widget
+      cacheWidth: 300, 
       errorBuilder: (context, error, stackTrace) {
-        print("ERROR GAMBAR: $error");
-
-        return const Center(
-          child: Icon(
-            Icons.person,
-            size: 40,
-            color: Colors.grey,
-          ),
-        );
+        print("Gagal memuat gambar: $error");
+        return const Icon(Icons.person, size: 40, color: Color(0xFFA0AEC0));
+      },
+    ),
+  ),
+);
+    }
+    
+    else if (fotoPath.startsWith('lib/')) {
+      return Image.asset(
+        fotoPath,
+        fit: BoxFit.cover,
+        width: 75,
+        height: 75,
+        errorBuilder: (context, error, stackTrace) {
+          return const Icon(Icons.broken_image_rounded, size: 35, color: Colors.redAccent);
       },
     );
   }
 
-  return const Center(
-    child: Icon(
+    else {
+      return const Icon(
       Icons.person,
       size: 40,
-      color: Colors.grey,
-    ),
+        color: Color(0xFFA0AEC0),
   );
 }
+  }
+
   // ================= DIALOG HAPUS =================
   void _tampilkanDialogHapus(
     BuildContext context,

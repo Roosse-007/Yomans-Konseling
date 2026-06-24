@@ -70,12 +70,8 @@ List<Map<String, dynamic>> get listDokter => _listDokter;
 // =====================
 // NORMALISASI HARGA
 // =====================
-
-final int hargaAwal =
-    double.tryParse(dokter['harga_awal'].toString())?.toInt() ?? 0;
-
-final int hargaDiskon =
-    double.tryParse(dokter['harga_diskon'].toString())?.toInt() ?? 0;
+          final int hargaAwal = double.tryParse(dokter['harga_awal'].toString())?.toInt() ?? 0;
+          final int hargaDiskon = double.tryParse(dokter['harga_diskon'].toString())?.toInt() ?? 0;
 
 // Simpan kembali ke map
 dokter['harga_awal'] = hargaAwal;
@@ -88,8 +84,7 @@ dokter['harga_diskon'] = hargaDiskon;
 int diskon = 0;
 
 if (hargaAwal > 0 && hargaDiskon > 0) {
-  diskon =
-      (((hargaAwal - hargaDiskon) / hargaAwal) * 100).round();
+            diskon = (((hargaAwal - hargaDiskon) / hargaAwal) * 100).round();
 }
 
 dokter['diskon'] = diskon;
@@ -127,6 +122,8 @@ request.fields['harga_diskon'] =
     dokterBaru["harga_diskon"].toString();
       request.fields['jadwal'] = dokterBaru["jadwal"].toString();
       request.fields['harga_awal'] = dokterBaru["harga_awal"].toString();
+      request.fields['harga_diskon'] = dokterBaru["harga_diskon"].toString();
+      request.fields['jadwal'] = dokterBaru["jadwal"].toString();
       request.fields['durasi'] = dokterBaru["durasi"].toString();
 
       // ================= FOTO KHUSUS WEB =================
@@ -210,6 +207,49 @@ request.fields['harga_diskon'] =
         "status": "error",
         "message": e.toString(),
       };
+    }
+  }
+
+  // ================= EDIT DOKTER (SUDAH DIPERBAIKI DI DALAM CLASS) =================
+  Future<bool> editDokter(Map<String, dynamic> data) async {
+  try {
+    final id = data['id'];
+    final url = Uri.parse("http://localhost:5000/api/admin/dokter/$id/update");
+    
+    // Gunakan MultipartRequest untuk mengirim teks DAN file sekaligus
+    var request = http.MultipartRequest("POST", url);
+
+    // 1. Tambahkan semua field teks
+    request.fields['nama'] = data['nama'].toString();
+    request.fields['tags'] = data['tags'].toString();
+    request.fields['jadwal'] = data['jadwal'].toString();
+    request.fields['harga_awal'] = data['harga_awal'].toString();
+    request.fields['harga_diskon'] = data['harga_diskon'].toString();
+    request.fields['durasi'] = data['durasi'].toString();
+
+    // 2. Tambahkan file hanya jika ada perubahan gambar
+    if (data['imageBytes'] != null) {
+      request.files.add(http.MultipartFile.fromBytes(
+        'foto',
+        data['imageBytes'] as List<int>,
+        filename: "dokter_$id.png", // Nama fix untuk menghindari karakter aneh
+      ));
+    }
+
+    // 3. Kirim request
+    var streamedResponse = await request.send();
+    var response = await http.Response.fromStream(streamedResponse);
+
+    if (response.statusCode == 200) {
+      print("Update Berhasil: ${response.body}");
+      return true;
+    } else {
+      print("Update Gagal: ${response.statusCode} - ${response.body}");
+      return false;
+    }
+  } catch (e) {
+    print("Error saat update: $e");
+    return false;
     }
   }
 }
