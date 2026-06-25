@@ -8,6 +8,7 @@ import '../admin/dashboard.dart';
 import '../home/home.dart';
 import '../auth/register.dart';
 import '../auth/forgot_password.dart';
+import '../../providers/user_provider.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({
@@ -74,15 +75,26 @@ class _LoginPageState extends State<LoginPage> {
           return;
         }
 
-        await Provider.of<AuthProvider>(
-          context,
-          listen: false,
-        ).setLogin(
-          token: token,
-          userData: userData,
-        );
+await Provider.of<AuthProvider>(
+  context,
+  listen: false,
+).setLogin(
+  token: token,
+  userData: userData,
+);
 
-        final String role = userData['role'] ?? 'user';
+Provider.of<UserProvider>(
+  context,
+  listen: false,
+).setUser(
+  id: userData["id"],
+  email: userData["email"] ?? "",
+  username: userData["username"] ?? "",
+  role: userData["role"] ?? "user",
+  fotoProfil: userData["foto_profil"],
+);
+
+final String role = userData['role'] ?? 'user';
 
         if (!mounted) return;
 

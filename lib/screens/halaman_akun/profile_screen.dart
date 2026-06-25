@@ -107,29 +107,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     final user = authProvider.user ?? {};
     final namaUser = user['username'] ?? 'User';
-    final peranUser = user['role'] ?? 'user';
     final fotoUser = user['foto_profil'] ?? '';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA), // Ubah background ke light grey agar card lebih pop-out
+      backgroundColor: const Color(0xFFF8F9FA),
+      
+      // ================= APP BAR WITH LOGOUT BUTTON =================
       appBar: AppBar(
-  title: const Text("Profile", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 20)),
-  centerTitle: true,
-  backgroundColor: Colors.white,
-  elevation: 0.5,
-  leading: IconButton( // 🔥 Tambahkan properti leading secara eksplisit
-    icon: const Icon(Icons.arrow_back_ios_new, size: 25, color: Colors.black), // Menggunakan panah style iOS
-    onPressed: () => Navigator.maybePop(context), // Fungsi kembali yang aman
-  ),
-),
+        title: const Text("Profile", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 20)),
+        centerTitle: true,
+        backgroundColor: Colors.white,
+        elevation: 0.5,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, size: 22, color: Colors.black),
+          onPressed: () {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => HomePage()),
+            );
+          },
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.red, size: 22),
+            onPressed: () => _showSignOutDialog(context),
+            tooltip: 'Logout',
+          ),
+          const SizedBox(width: 8), 
+        ],
+      ),
+      
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
         child: Column(
           children: [
-            // ================= PROFILE IMAGE WITH MOUSE CURSOR =================
+            // ================= PROFILE IMAGE =================
             Center(
               child: MouseRegion(
-                cursor: SystemMouseCursors.click, // 🔥 Mengubah kursor menjadi telunjuk (Pointer)
+                cursor: SystemMouseCursors.click,
                 child: GestureDetector(
                   onTap: () => _pickImage(authProvider),
                   child: Stack(
@@ -162,7 +177,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         child: CircleAvatar(
                           radius: 18,
                           backgroundColor: ProfileScreen.primaryGreen,
-                          child: const Icon(Icons.camera_alt, size: 16, color: Colors.white), // Mengganti ke icon kamera agar lebih intuitif
+                          child: const Icon(Icons.camera_alt, size: 16, color: Colors.white),
                         ),
                       ),
                     ],
@@ -231,34 +246,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ],
               ),
             ),
-
-            const SizedBox(height: 40),
-
-// ================= LOGOUT BUTTON =================
-SizedBox(
-  width: double.infinity,
-  height: 52,
-  child: ElevatedButton( // 🔥 Cukup gunakan ElevatedButton biasa di sini
-    style: ElevatedButton.styleFrom(
-      backgroundColor: Colors.white,
-      foregroundColor: Colors.red,
-      elevation: 0,
-      side: const BorderSide(color: Colors.red, width: 1.5), // Gaya outline border merah tetap aman
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-    ),
-    onPressed: () => _showSignOutDialog(context),
-    child: const Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(Icons.logout, size: 18),
-        SizedBox(width: 8),
-        Text("Logout", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-      ],
-    ),
-  ),
-),
           ],
         ),
       ),
@@ -292,7 +279,7 @@ SizedBox(
           items: const [
             BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home), label: "Beranda"),
             BottomNavigationBarItem(icon: Icon(Icons.book_outlined), activeIcon: Icon(Icons.book), label: "Informasi"),
-            BottomNavigationBarItem(icon: Icon(Icons.history), activeIcon: Icon(Icons.history), label: "Riwayat"),
+            BottomNavigationBarItem(icon: Icon(Icons.history_outlined), activeIcon: Icon(Icons.history), label: "Riwayat"),
             BottomNavigationBarItem(icon: Icon(Icons.person_outline), activeIcon: Icon(Icons.person), label: "Profile"),
           ],
         ),
@@ -300,7 +287,6 @@ SizedBox(
     );
   }
 
-  // Helper widget untuk membuat menu item agar kode lebih bersih dan konsisten
   Widget _buildMenuTile({required IconData icon, required String title, required VoidCallback onTap}) {
     return ListTile(
       leading: Container(

@@ -2,7 +2,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
-
+import 'package:yomans_konseling/providers/ulasan_provider.dart';
+import 'package:yomans_konseling/providers/user_provider.dart';
 // Pastikan path import ini sesuai dengan struktur folder di proyek Anda
 import '../../providers/auth_provider.dart'; 
 
@@ -30,75 +31,137 @@ class _HistoryBookingPageState extends State<HistoryBookingPage> {
   }
 
   // 1. FUNGSI MENGAMBIL DATA DARI SQL (BERDASARKAN USER YANG LOGIN)
-  Future<void> fetchBookingHistory() async {
-    try {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final String clientName = authProvider.nama; 
+Future<void> fetchBookingHistory() async {
 
-      if (clientName.isEmpty) {
-        setState(() {
-          isLoading = false;
-        });
-        return;
-      }
+  try {
 
-      final url = Uri.parse('$baseUrl/history?client_name=$clientName'); 
-      final response = await http.get(url);
+    final userId =
+        context.read<UserProvider>().id;
 
-      if (response.statusCode == 200) {
-        setState(() {
-          bookingHistory = json.decode(response.body);
-          isLoading = false;
-        });
-      } else {
-        throw Exception('Gagal memuat riwayat booking');
-      }
-    } catch (e) {
-      setState(() {
-        isLoading = false;
-      });
-      debugPrint("Error Fetching Data: $e");
+    if (userId == null) {
+      throw Exception("User belum login");
     }
+
+    final url = Uri.parse(
+      "$baseUrl/api/history/$userId",
+    );
+
+    final response = await http.get(url);
+
+    if (response.statusCode == 200) {
+
+      final result =
+          jsonDecode(response.body);
+
+      setState(() {
+
+        bookingHistory =
+            result["data"] ?? [];
+
+        isLoading = false;
+
+      });
+
+    } else {
+
+      throw Exception(
+          "Gagal mengambil history");
+
+    }
+
+  } catch (e) {
+
+    debugPrint(e.toString());
+
+    setState(() {
+
+      isLoading = false;
+
+    });
+
   }
+
+}
 
   // 2. FUNGSI MENGIRIM ULASAN KE SQL
-  Future<void> submitReview(int index, int rating, String comment) async {
-    final url = Uri.parse('$baseUrl/submit-review');
-    
-    try {
-      final response = await http.post(
-        url,
-        headers: {"Content-Type": "application/json"},
-        body: json.encode({
-          "booking_id": bookingHistory[index]["id"], // Mengirim ID Unik dari Tabel SQL
-          "rating": rating,
-          "comment": comment,
-        }),
-      );
+Future<void> submitReview(
+  int index,
+  int rating,
+  String comment,
+) async {
 
-      if (response.statusCode == 200) {
-        setState(() {
-          // Mengubah state lokal secara instan agar UI terupdate tanpa reload halaman
-          bookingHistory[index]["reviewed"] = true;
-          bookingHistory[index]["rating"] = rating;
-          bookingHistory[index]["comment"] = comment;
-          bookingHistory[index]["status"] = "Sesi Berakhir"; 
-        });
-        
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Ulasan berhasil dikirim")),
-          );
-        }
-      }
-    } catch (e) {
-      debugPrint("Error Submitting Review: $e");
-    }
+  final ulasanProvider = Provider.of<UlasanProvider>(
+    context,
+    listen: false,
+  );
+
+  try {
+
+    await ulasanProvider.tambahUlasan(
+
+      bookingId: bookingHistory[index]["id"],
+
+      dokterId: bookingHistory[index]["dokter_id"],
+
+      userId: bookingHistory[index]["user_id"],
+
+      rating: rating,
+
+      komentar: comment,
+
+    );
+
+    // Refresh data ulasan dokter
+    await ulasanProvider.refresh(
+    bookingHistory[index]["dokter_id"],
+);
+
+await fetchBookingHistory();
+
+    // Update tampilan history tanpa reload halaman
+    setState(() {
+
+      bookingHistory[index]["reviewed"] = true;
+
+      bookingHistory[index]["rating"] = rating;
+
+      bookingHistory[index]["comment"] = comment;
+
+      bookingHistory[index]["status"] = "Sesi Selesai";
+
+    });
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("Ulasan berhasil dikirim"),
+        backgroundColor: Color(0xff2d6a4f),
+      ),
+    );
+
+  } catch (e) {
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          "Gagal mengirim ulasan\n$e",
+        ),
+        backgroundColor: Colors.red,
+      ),
+    );
+
+    debugPrint(e.toString());
+
   }
+
+}
 
   // 3. FUNGSI PEMBATALAN BOOKING KE SQL
   Future<void> submitCancelBooking(int index) async {
-    final url = Uri.parse('$baseUrl/cancel-booking');
+    final url = Uri.parse("$baseUrl/api/cancel-booking");
 
     try {
       final response = await http.post(
@@ -112,7 +175,7 @@ class _HistoryBookingPageState extends State<HistoryBookingPage> {
       if (response.statusCode == 200) {
         setState(() {
           // Mengubah status di UI menjadi Dibatalkan
-          bookingHistory[index]["status"] = "Dibatalkan";
+          bookingHistory[index]["status"] = "Sesi Selesai";
         });
 
         if (mounted) {
@@ -129,7 +192,7 @@ class _HistoryBookingPageState extends State<HistoryBookingPage> {
   // Manajemen Warna Label Berdasarkan Status Transaksi di Database
   Color statusColor(String status) {
     switch (status) {
-      case "Sesi Berakhir":
+      case "Sesi Selesai":
         return const Color(0xFF1F5F33); // Hijau Tua
       case "Menunggu Jadwal":
         return Colors.orange;
@@ -375,7 +438,7 @@ class _HistoryBookingPageState extends State<HistoryBookingPage> {
                                     Row(
                                       children: [
                                         // JIKA SESI BERAKHIR & BELUM DIULAS -> MUNCUL TOMBOL ULASAN
-                                        if (item["status"] == "Sesi Berakhir" && !isReviewed)
+                                        if (item["status"] == "Sesi Selesai" && !isReviewed)
                                           ElevatedButton(
                                             style: ElevatedButton.styleFrom(
                                               backgroundColor: const Color(0xFF1F5F33),

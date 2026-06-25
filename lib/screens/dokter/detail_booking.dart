@@ -3,8 +3,10 @@ import 'package:http/http.dart' as http;
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:yomans_konseling/models/ulasan_model.dart';
 import 'package:yomans_konseling/screens/pembayaran/payment.dart';
 import 'package:yomans_konseling/utils/currency_helper.dart';
+import 'package:yomans_konseling/providers/ulasan_provider.dart';
 
 class DetailBookingPage extends StatefulWidget {
   final Map<String, dynamic> dataDokter;
@@ -27,57 +29,61 @@ class _DetailBookingPageState extends State<DetailBookingPage> {
   String _pilihanDurasi = '1 jam';
 List<dynamic> _jadwalDokter = [];
 
+late UlasanProvider ulasanProvider;
+
 
 @override
 void initState() {
   super.initState();
 
+  ulasanProvider = Provider.of<UlasanProvider>(
+    context,
+    listen: false,
+  );
+
+
   fetchJadwal();
 }
 Future<void> fetchJadwal() async {
-
   setState(() {
     _loadingJadwal = true;
   });
 
   try {
-
-    final int dokterId =
-        widget.dataDokter['id'];
+    final int dokterId = widget.dataDokter["id"];
 
     print("DOKTER ID = $dokterId");
 
-    final response =
-        await http.get(
+    final response = await http.get(
       Uri.parse(
-        'http://127.0.0.1:5000/api/dokter/$dokterId/jadwal',
+        "http://127.0.0.1:5000/api/dokter/$dokterId/jadwal",
       ),
     );
 
     print("STATUS CODE = ${response.statusCode}");
     print("BODY = ${response.body}");
 
-    final data =
-        jsonDecode(
-      response.body,
-    );
+    final data = jsonDecode(response.body);
 
-    setState(() {
-      _jadwalDokter =
-          data['data'] ?? [];
-    });
+    if (response.statusCode == 200) {
+      setState(() {
+        _jadwalDokter = data["data"] ?? [];
+      });
+
+      // Refresh ulasan juga
+      await ulasanProvider.refresh(dokterId);
+    }
 
     print("DATA JADWAL = $_jadwalDokter");
-
   } catch (e) {
-
     print("ERROR FETCH JADWAL = $e");
-
   }
 
-  setState(() {
-    _loadingJadwal = false;
-  });
+  if (mounted) {
+    setState(() {
+      _loadingJadwal = false;
+    });
+  }
 }
 
 Future<void> updateStatusJadwal(
@@ -702,78 +708,150 @@ final bool adaDiskon = diskon > 0;
     );
   }
 
-  Widget _buildHeaderProfilBesar(String imagePath, bool isNetworkImage, String namaLengkap) {
-    final List<String> tags = _ambilTagsAman();
+  Widget _buildHeaderProfilBesar(
+    String imagePath,
+    bool isNetworkImage,
+    String namaLengkap,
+) {
+  final List<String> tags = _ambilTagsAman();
 
-    return Container(
-      width: double.infinity,
-      color: Colors.white,
-      child: Column(
-        children: [
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              Container(
-                height: 130,
-                margin: const EdgeInsets.only(bottom: 70),
-                decoration: const BoxDecoration(
-                  color: Color(0xffdfebd6),
-                  borderRadius: BorderRadius.only(
-                    bottomLeft: Radius.circular(20),
-                    bottomRight: Radius.circular(20),
-                  ),
+  return Container(
+    width: double.infinity,
+    color: Colors.white,
+    child: Column(
+      children: [
+        Stack(
+          alignment: Alignment.center,
+          children: [
+            Container(
+              height: 130,
+              margin: const EdgeInsets.only(bottom: 70),
+              decoration: const BoxDecoration(
+                color: Color(0xffdfebd6),
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(20),
+                  bottomRight: Radius.circular(20),
                 ),
               ),
-              Positioned(
-                top: 25,
-                child: Container(
-                  decoration: BoxDecoration(
-                    border: Border.all(color: const Color(0xff2d6a4f), width: 4),
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(20),
-                    child: isNetworkImage
-                        ? Image.network(imagePath, height: 145, width: 145, fit: BoxFit.cover)
-                        : Image.asset(imagePath, height: 145, width: 145, fit: BoxFit.cover),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            namaLengkap,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black),
-          ),
-          const SizedBox(height: 12),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              alignment: WrapAlignment.center,
-              children: tags.map((tag) {
-                return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: const Color(0xffe8f5e9), 
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    tag, 
-                    style: const TextStyle(color: Color(0xff2d6a4f), fontSize: 10, fontWeight: FontWeight.w600),
-                  ),
-                );
-              }).toList(),
             ),
+
+            Positioned(
+              top: 25,
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: const Color(0xff2d6a4f),
+                    width: 4,
+                  ),
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: isNetworkImage
+                      ? Image.network(
+                          imagePath,
+                          height: 145,
+                          width: 145,
+                          fit: BoxFit.cover,
+                        )
+                      : Image.asset(
+                          imagePath,
+                          height: 145,
+                          width: 145,
+                          fit: BoxFit.cover,
+                        ),
+                ),
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 4),
+
+        Text(
+          namaLengkap,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
           ),
-          const SizedBox(height: 16),
-        ],
-      ),
-    );
-  }
+        ),
+
+        const SizedBox(height: 12),
+
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            alignment: WrapAlignment.center,
+            children: tags.map((tag) {
+              return Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 5,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xffe8f5e9),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  tag,
+                  style: const TextStyle(
+                    color: Color(0xff2d6a4f),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+
+        const SizedBox(height: 14),
+
+        Consumer<UlasanProvider>(
+          builder: (context, provider, child) {
+            return Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+
+                const Icon(
+                  Icons.star,
+                  color: Colors.amber,
+                  size: 18,
+                ),
+
+                const SizedBox(width: 5),
+
+                Text(
+                  provider.rating.toStringAsFixed(1),
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+
+                const SizedBox(width: 5),
+
+                Text(
+                  "(${provider.totalUlasan} ulasan)",
+                  style: const TextStyle(
+                    color: Colors.grey,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+
+        const SizedBox(height: 18),
+      ],
+    ),
+  );
+}
 
   Widget _buildHeaderJadwalKecil(String imagePath, bool isNetworkImage, String namaLengkap) {
     final List<String> tags = _ambilTagsAman();
@@ -823,67 +901,252 @@ final bool adaDiskon = diskon > 0;
       ),
     );
   }
-
-  Widget _buildKontenUlasanPsikolog() {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Ulasan Psikolog', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-              TextButton(onPressed: () {}, child: const Text('Lihat Semua', style: TextStyle(color: Colors.green, fontSize: 13))),
-            ],
+Widget _buildKontenUlasanPsikolog() {
+  return Consumer<UlasanProvider>(
+    builder: (context, provider, child) {
+      if (provider.loading) {
+        return const Padding(
+          padding: EdgeInsets.all(30),
+          child: Center(
+            child: CircularProgressIndicator(
+              color: Color(0xff2d6a4f),
+            ),
           ),
-          const SizedBox(height: 8),
-          _buildItemUlasanCard('Udin Jabrix', '07/03/2026', 'Ngobrol nyaman banget, serasa cerita ke temen tapi tetap dapat solusi yang profesional.'),
-          const Divider(height: 24),
-          _buildItemUlasanCard('Jamal Kopling', '08/03/2026', 'Ngobrol nyaman banget, serasa cerita ke temen tapi tetap dapat solusi yang profesional.'),
-        ],
-      ),
-    );
-  }
+        );
+      }
 
-  Widget _buildItemUlasanCard(String namaUser, String tanggal, String isiKomentar) {
-    return Column(
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+
+            const SizedBox(height: 20),
+
+            const Text(
+              "Ulasan Pengguna",
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+
+            const SizedBox(height: 5),
+
+            Text(
+              "${provider.totalUlasan} ulasan • Rating ${provider.rating.toStringAsFixed(1)}",
+              style: const TextStyle(
+                color: Colors.grey,
+                fontSize: 13,
+              ),
+            ),
+
+            const SizedBox(height: 18),
+
+            if (provider.listUlasan.isEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  vertical: 40,
+                  horizontal: 20,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Column(
+                  children: [
+
+                    Icon(
+                      Icons.rate_review_outlined,
+                      size: 45,
+                      color: Colors.grey,
+                    ),
+
+                    SizedBox(height: 12),
+
+                    Text(
+                      "Belum ada ulasan",
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+
+                    SizedBox(height: 5),
+
+                    Text(
+                      "Jadilah pengguna pertama yang memberikan ulasan.",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              Column(
+                children: List.generate(
+                  provider.listUlasan.length > 3
+                      ? 3
+                      : provider.listUlasan.length,
+                  (index) {
+                    return Column(
+                      children: [
+
+                        _buildItemUlasanCard(
+                          provider.listUlasan[index],
+                        ),
+
+                        const SizedBox(height: 12),
+
+                      ],
+                    );
+                  },
+                ),
+              ),
+
+            if (provider.listUlasan.length > 3)
+              Center(
+                child: TextButton.icon(
+                  onPressed: () {
+
+                    // TODO:
+                    // Navigator.push(
+                    //   context,
+                    //   MaterialPageRoute(
+                    //     builder: (_) => SemuaUlasanScreen(
+                    //       dokterId: widget.dataDokter["id"],
+                    //     ),
+                    //   ),
+                    // );
+
+                  },
+                  icon: const Icon(
+                    Icons.visibility,
+                    color: Color(0xff2d6a4f),
+                  ),
+                  label: const Text(
+                    "Lihat Semua Ulasan",
+                    style: TextStyle(
+                      color: Color(0xff2d6a4f),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+
+            const SizedBox(height: 30),
+          ],
+        ),
+      );
+    },
+  );
+}
+
+  Widget _buildItemUlasanCard(UlasanModel ulasan) {
+  return Container(
+    margin: const EdgeInsets.symmetric(
+      horizontal: 16,
+      vertical: 8,
+    ),
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(
+        color: Colors.grey.shade300,
+      ),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.04),
+          blurRadius: 8,
+          offset: const Offset(0, 3),
+        ),
+      ],
+    ),
+    child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+
             CircleAvatar(
+              radius: 24,
               backgroundColor: const Color(0xff2d6a4f),
-              radius: 18,
-              child: Text(namaUser[0], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              child: Text(
+                ulasan.nama.isNotEmpty
+                    ? ulasan.nama[0].toUpperCase()
+                    : "?",
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
             ),
+
             const SizedBox(width: 12),
+
             Expanded(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment:
+                    CrossAxisAlignment.start,
                 children: [
-                  Text(namaUser, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+
+                  Text(
+                    ulasan.nama,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
+                  ),
+
+                  const SizedBox(height: 4),
+
                   Row(
-                    children: const [
-                      Icon(Icons.star, color: Colors.amber, size: 14),
-                      Icon(Icons.star, color: Colors.amber, size: 14),
-                      Icon(Icons.star, color: Colors.amber, size: 14),
-                      Icon(Icons.star, color: Colors.amber, size: 14),
-                      Icon(Icons.star, color: Colors.amber, size: 14),
-                    ],
-                  )
+                    children: List.generate(
+                      5,
+                      (index) => Icon(
+                        Icons.star_rounded,
+                        size: 18,
+                        color: index < ulasan.rating
+                            ? Colors.amber
+                            : Colors.grey.shade300,
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
-            Text(tanggal, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+
+            Text(
+              ulasan.createdAt,
+              style: TextStyle(
+                color: Colors.grey.shade600,
+                fontSize: 11,
+              ),
+            ),
           ],
         ),
-        const SizedBox(height: 10),
-        Text(isiKomentar, style: TextStyle(fontSize: 12, color: Colors.grey[700], height: 1.4)),
-      ],
-    );
-  }
 
+        const SizedBox(height: 14),
+
+        Text(
+          ulasan.komentar,
+          style: TextStyle(
+            color: Colors.grey.shade800,
+            fontSize: 14,
+            height: 1.6,
+          ),
+        ),
+      ],
+    ),
+  );
+}
 Widget _buildKontenAturJadwal() {
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,

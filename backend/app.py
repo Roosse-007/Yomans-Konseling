@@ -111,14 +111,17 @@ def login():
             }), 400
 
         # ================= CEK USER =================
-        cur.execute(
-            """
-             SELECT id, username, password, role, foto_profil
-            FROM user
-            WHERE username=%s
-            """,
-            (username,)
-        )
+        cur.execute("""
+        SELECT
+            id,
+            email,
+            username,
+            password,
+            role,
+            foto_profil
+        FROM user
+        WHERE username=%s
+        """, (username,))
 
         user = cur.fetchone()
 
@@ -807,53 +810,127 @@ def dokter():
         return jsonify({"status": "error", "message": "Gagal mengambil dokter"}), 500
         
 # ================= BOOKING =================
-# ================= BOOKING (REVISI DINAMIS HARGA) =================
+# ================= BOOKING =================
 @app.route("/api/booking", methods=["POST"])
 def booking():
+
     try:
+
         data = request.get_json(silent=True)
-        if not data or not all(k in data for k in ("user_id", "dokter_id", "tanggal", "keluhan")):
-            return jsonify({"status": "error", "message": "Data tidak lengkap"}), 400
+
+        if not data:
+            return jsonify({
+                "status": "error",
+                "message": "Data tidak ditemukan"
+            }), 400
 
         user_id = data.get("user_id")
         dokter_id = data.get("dokter_id")
         tanggal = data.get("tanggal")
         keluhan = data.get("keluhan")
 
+        if not all([user_id, dokter_id, tanggal, keluhan]):
+            return jsonify({
+                "status": "error",
+                "message": "Data booking tidak lengkap"
+            }), 400
+
         db = get_db()
         cur = db.cursor(dictionary=True)
-        
-        # 1. Ambil harga dari tabel dokter agar sinkron
-        cur.execute("SELECT harga FROM dokter WHERE id = %s", (dokter_id,))
-        dokter = cur.fetchone()
-        
-        if not dokter:
-            return jsonify({"status": "error", "message": "Dokter tidak ditemukan"}), 404
-            
-        total_pembayaran = dokter['harga'] # Menggunakan harga dari DB
 
-        # 2. Simpan ke database
-        cur.execute(
-            """
-            INSERT INTO booking (user_id, dokter_id, tanggal, keluhan, total_price) 
-            VALUES (%s, %s, %s, %s, %s)
-            """,
-            (user_id, dokter_id, tanggal, keluhan, total_pembayaran)
-        )
+        # ================= AMBIL DATA DOKTER =================
+
+        cur.execute("""
+            SELECT
+                id,
+                harga_awal,
+                harga_diskon
+            FROM dokter
+            WHERE id=%s
+        """, (dokter_id,))
+
+        dokter = cur.fetchone()
+
+        if not dokter:
+
+            cur.close()
+            db.close()
+
+            return jsonify({
+                "status": "error",
+                "message": "Dokter tidak ditemukan"
+            }), 404
+
+        # ================= HITUNG HARGA =================
+
+        if dokter["harga_diskon"] is not None and float(dokter["harga_diskon"]) > 0:
+            total_pembayaran = dokter["harga_diskon"]
+        else:
+            total_pembayaran = dokter["harga_awal"]
+
+        # ================= SIMPAN BOOKING =================
+
+        cur.execute("""
+            INSERT INTO booking
+            (
+                user_id,
+                dokter_id,
+                tanggal,
+                keluhan,
+                total_price,
+                status,
+                reviewed
+            )
+            VALUES
+            (
+                %s,
+                %s,
+                %s,
+                %s,
+                %s,
+                'Menunggu Pembayaran',
+                0
+            )
+        """, (
+
+            user_id,
+            dokter_id,
+            tanggal,
+            keluhan,
+            total_pembayaran,
+
+        ))
+
         db.commit()
-        booking_id = cur.lastrowid # Ambil ID booking yang baru dibuat
+
+        booking_id = cur.lastrowid
+
         cur.close()
+        db.close()
 
         return jsonify({
-            "status": "success", 
-            "message": "Booking berhasil",
+
+            "status": "success",
+
             "booking_id": booking_id,
-            "total_harga": total_pembayaran
+
+            "total_harga": float(total_pembayaran),
+
+            "message": "Booking berhasil"
+
         }), 200
-        
+
     except Exception as e:
-        print("BOOKING ERROR:", e)
-        return jsonify({"status": "error", "message": "Booking gagal"}), 500
+
+        print("BOOKING ERROR :", e)
+
+        return jsonify({
+
+            "status": "error",
+
+            "message": str(e)
+
+        }), 500
 # ================= TAMBAHAN FITUR PEMBAYARAN VA =================
 
 @app.route("/api/get-va-details/<int:booking_id>", methods=["GET"])
@@ -1235,23 +1312,61 @@ def reset_password():
     
     # ================= RIWAYAT BOOKING (SINKRON KE FLUTTER) =================
 
-@app.route("/api/history", methods=["GET"])
-def get_history():
-    client_name = request.args.get('client_name')
-    if not client_name:
-        return jsonify({"status": "error", "message": "client_name wajib diisi"}), 400
+@app.route("/api/history/<int:user_id>", methods=["GET"])
+def get_history(user_id):
 
     try:
+
         db = get_db()
         cur = db.cursor(dictionary=True)
-        # Mengambil riwayat booking user berdasarkan nama
-        cur.execute("SELECT * FROM booking_history WHERE client_name = %s", (client_name,))
+
+        cur.execute("""
+            SELECT
+
+                b.id,
+                b.user_id,
+                b.dokter_id,
+
+                d.nama AS doctor_name,
+                d.tags AS doctor_category,
+                d.image_url AS doctor_image,
+
+                b.tanggal AS booking_date,
+                '' AS booking_time,
+
+                b.status,
+                b.reviewed,
+                b.total_price
+
+            FROM booking b
+
+            INNER JOIN dokter d
+                ON d.id = b.dokter_id
+
+            WHERE b.user_id = %s
+
+            ORDER BY b.id DESC
+
+        """, (user_id,))
+
         data = cur.fetchall()
+
         cur.close()
-        return jsonify(data), 200
+        db.close()
+
+        return jsonify({
+            "status": "success",
+            "data": data
+        })
+
     except Exception as e:
-        print("GET HISTORY ERROR:", e)
-        return jsonify({"status": "error", "message": str(e)}), 500
+
+        print("GET HISTORY ERROR :", e)
+
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }),500
 
  
 # ================= SUBMIT REVIEW (LENGKAPI YANG TERPOTONG) =================
@@ -2114,6 +2229,317 @@ def update_status_jadwal(id):
             "status": "error",
             "message": str(e)
         }), 500
+    
+    # ===========================
+# TAMBAH ULASAN
+# ===========================
+@app.route("/api/ulasan", methods=["POST"])
+def tambah_ulasan():
+
+    try:
+
+        data = request.get_json()
+
+        booking_id = data.get("booking_id")
+        user_id = data.get("user_id")
+        dokter_id = data.get("dokter_id")
+        rating = data.get("rating")
+        komentar = data.get("komentar")
+
+        db = get_db()
+        cur = db.cursor(dictionary=True)
+
+        # cek booking
+        cur.execute("""
+            SELECT *
+            FROM booking
+            WHERE id=%s
+            AND user_id=%s
+            AND dokter_id=%s
+        """, (
+            booking_id,
+            user_id,
+            dokter_id,
+        ))
+
+        booking = cur.fetchone()
+
+        if booking is None:
+
+            return jsonify({
+                "status":"error",
+                "message":"Booking tidak ditemukan."
+            }),400
+
+        # cek apakah sudah pernah review
+
+        cur.execute("""
+            SELECT id
+            FROM ulasan
+            WHERE booking_id=%s
+        """,(booking_id,))
+
+        if cur.fetchone():
+
+            return jsonify({
+                "status":"error",
+                "message":"Anda sudah memberikan ulasan."
+            }),400
+
+
+        cur.execute("""
+            INSERT INTO ulasan
+            (
+                booking_id,
+                user_id,
+                dokter_id,
+                rating,
+                komentar
+            )
+
+            VALUES
+            (%s,%s,%s,%s,%s)
+        """,(
+
+            booking_id,
+            user_id,
+            dokter_id,
+            rating,
+            komentar
+
+        ))
+
+        db.commit()
+
+        return jsonify({
+            "status":"success",
+            "message":"Ulasan berhasil dikirim."
+        })
+
+    except Exception as e:
+
+        return jsonify({
+            "status":"error",
+            "message":str(e)
+        }),500
+    
+    # ===========================
+# GET ULASAN DOKTER
+# ===========================
+@app.route("/api/dokter/<int:dokter_id>/ulasan")
+def get_ulasan_dokter(dokter_id):
+
+    try:
+
+        db=get_db()
+
+        cur=db.cursor(dictionary=True)
+
+        cur.execute("""
+
+            SELECT
+
+                u.id,
+
+                u.rating,
+
+                u.komentar,
+
+                u.created_at,
+
+                usr.nama
+
+            FROM ulasan u
+
+            JOIN user usr
+            ON u.user_id=usr.id
+
+            WHERE dokter_id=%s
+
+            ORDER BY created_at DESC
+
+        """,(dokter_id,))
+
+        data=cur.fetchall()
+
+        return jsonify({
+
+            "status":"success",
+
+            "data":data
+
+        })
+
+    except Exception as e:
+
+        return jsonify({
+
+            "status":"error",
+
+            "message":str(e)
+
+        }),500
+    
+    # ===========================
+# RATING
+# ===========================
+@app.route("/api/dokter/<int:dokter_id>/rating")
+def rating_dokter(dokter_id):
+
+    db=get_db()
+
+    cur=db.cursor(dictionary=True)
+
+    cur.execute("""
+
+        SELECT
+
+        ROUND(AVG(rating),1) AS rating,
+
+        COUNT(*) AS total
+
+        FROM ulasan
+
+        WHERE dokter_id=%s
+
+    """,(dokter_id,))
+
+    data=cur.fetchone()
+
+    return jsonify({
+
+        "status":"success",
+
+        "data":data
+
+    })
+
+@app.route("/api/ulasan/<int:id>",methods=["PUT"])
+def edit_ulasan(id):
+
+    try:
+
+        data=request.get_json()
+
+        db=get_db()
+
+        cur=db.cursor()
+
+        cur.execute("""
+
+            UPDATE ulasan
+
+            SET
+
+            rating=%s,
+
+            komentar=%s
+
+            WHERE id=%s
+
+        """,(
+
+            data["rating"],
+
+            data["komentar"],
+
+            id
+
+        ))
+
+        db.commit()
+
+        return jsonify({
+
+            "status":"success"
+
+        })
+
+    except Exception as e:
+
+        return jsonify({
+
+            "status":"error",
+
+            "message":str(e)
+
+        }),500
+    
+@app.route("/api/ulasan/<int:id>",methods=["DELETE"])
+def hapus_ulasan(id):
+
+    try:
+
+        db=get_db()
+
+        cur=db.cursor()
+
+        cur.execute("""
+
+            DELETE FROM ulasan
+
+            WHERE id=%s
+
+        """,(id,))
+
+        db.commit()
+
+        return jsonify({
+
+            "status":"success"
+
+        })
+
+    except Exception as e:
+
+        return jsonify({
+
+            "status":"error",
+
+            "message":str(e)
+
+        }),500
+    
+@app.route("/api/user/<int:user_id>/boleh-ulasan/<int:booking_id>")
+def boleh_ulasan(user_id,booking_id):
+
+    db=get_db()
+
+    cur=db.cursor(dictionary=True)
+
+    cur.execute("""
+
+        SELECT *
+
+        FROM booking
+
+        WHERE
+
+        id=%s
+
+        AND user_id=%s
+
+        AND status='selesai'
+
+    """,(booking_id,user_id))
+
+    booking=cur.fetchone()
+
+    if booking:
+
+        return jsonify({
+
+            "boleh":True
+
+        })
+
+    return jsonify({
+
+        "boleh":False
+
+    })
+
+
 
 if __name__ == "__main__":
     app.run(debug=True, use_reloader=False, host="0.0.0.0", port=5000)
