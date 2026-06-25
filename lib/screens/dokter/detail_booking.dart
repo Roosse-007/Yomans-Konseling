@@ -7,6 +7,10 @@ import 'package:yomans_konseling/models/ulasan_model.dart';
 import 'package:yomans_konseling/screens/pembayaran/payment.dart';
 import 'package:yomans_konseling/utils/currency_helper.dart';
 import 'package:yomans_konseling/providers/ulasan_provider.dart';
+import 'package:yomans_konseling/providers/favorit_provider.dart';
+import 'package:yomans_konseling/providers/auth_provider.dart';
+
+List<dynamic> _jadwalDokter = [];
 
 class DetailBookingPage extends StatefulWidget {
   final Map<String, dynamic> dataDokter;
@@ -25,9 +29,7 @@ class _DetailBookingPageState extends State<DetailBookingPage> {
   bool _isTabProfilAktif = true; 
    
   String _pilihanWaktu = 'Semua';
-  String _filterWaktu = "Semua";
   String _pilihanDurasi = '1 jam';
-List<dynamic> _jadwalDokter = [];
 
 late UlasanProvider ulasanProvider;
 
@@ -222,16 +224,17 @@ String hargaFix =
 
 // Hitung persen diskon otomatis
 int diskon = 0;
+String diskonPersen = '';
 
 if (hargaAwalFinal > 0 &&
-    hargaDiskonFinal > 0 &&
-    hargaDiskonFinal < hargaAwalFinal) {
+    hargaDiskonFinal > 0) {
 
-  diskon =
-      (((hargaAwalFinal - hargaDiskonFinal) /
-              hargaAwalFinal) *
-          100)
+  diskon = (((hargaAwalFinal - hargaDiskonFinal) /
+          hargaAwalFinal) *
+      100)
       .round();
+
+  diskonPersen = '-$diskon%';
 }
 
 final bool adaDiskon = diskon > 0;
@@ -351,53 +354,20 @@ final bool adaDiskon = diskon > 0;
         if (adaDiskon)
           Row(
             children: [
-
-              Text(
-                hargaCoret,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.grey[400],
-                  decoration: TextDecoration.lineThrough,
-                ),
-              ),
-
-              const SizedBox(width: 5),
-
+                                    Text(hargaCoret, style: TextStyle(fontSize: 11, color: Colors.grey[400], decoration: TextDecoration.lineThrough)),
+                                    const SizedBox(width: 4),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 4,
-                  vertical: 2,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade50,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  "-$diskon%",
-                  style: const TextStyle(
-                    color: Colors.red,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 9,
-                  ),
-                ),
-              ),
+                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                      color: Colors.red[50],
+                                      child: Text(diskonPersen, style: const TextStyle(color: Colors.red, fontSize: 9, fontWeight: FontWeight.bold)),
+                                    )
             ],
           ),
-
-        const SizedBox(height: 3),
-
-        Text(
-          hargaFix,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
-          ),
-        ),
+                                Text(hargaFix, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black)),
       ],
-    ),
+                            )
   ],
-),
+                        )
                       ],
                     ),
                   ),
@@ -571,24 +541,93 @@ final bool adaDiskon = diskon > 0;
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black, size: 25),
-          onPressed: () => Navigator.pop(context),
+    icon: const Icon(
+      Icons.arrow_back_ios_new_rounded,
+      color: Colors.black,
+      size: 25,
+    ),
+    onPressed: () {
+      Navigator.pop(context);
+    },
         ),
         title: Text(
-          _isTabProfilAktif ? 'Psikolog $namaDepan' : 'Jadwal dan atur temu', 
-          style: const TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.bold),
+    namaLengkap.split(' ').first,
+    style: const TextStyle(
+      color: Colors.black,
+      fontWeight: FontWeight.bold,
+      fontSize: 18,
+    ),
         ),
         centerTitle: true,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.share_outlined, color: Colors.black),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Tautan profil psikolog berhasil disalin!')),
+
+    Consumer<FavoritProvider>(
+      builder: (
+        context,
+        favoritProvider,
+        child,
+      ) {
+
+        final auth =
+            Provider.of<AuthProvider>(
+          context,
+          listen: false,
+        );
+
+        final bool isFavorit =
+            favoritProvider
+                .favoritDokter
+                .contains(
+                  widget.dataDokter['id'],
+                );
+
+        return IconButton(
+
+          icon: Icon(
+
+            isFavorit
+                ? Icons.favorite
+                : Icons.favorite_border,
+
+            color: Colors.red,
+            size: 28,
+          ),
+
+          onPressed: () async {
+
+            if (isFavorit) {
+
+              await favoritProvider
+                  .hapusFavorit(
+
+                userId:
+                    auth.userId,
+
+                dokterId:
+                    widget.dataDokter['id'],
+              );
+
+            } else {
+
+              await favoritProvider
+                  .tambahFavorit(
+
+                userId:
+                    auth.userId,
+
+                dokterId:
+                    widget.dataDokter['id'],
+              );
+            }
+          },
               );
             },
           ),
+
+    const SizedBox(width: 10),
         ],
+
+  
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -1151,28 +1190,33 @@ Widget _buildKontenAturJadwal() {
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
+
       Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 12,
+        ),
         child: Row(
           children: [
+
             Expanded(
               child: GestureDetector(
                 onTap: () {
                   _tampilkanPilihanFilter(
-                    judul: "Pilih Waktu Konseling",
+                    judul: 'Pilih Waktu Konseling',
                     opsiData: _listWaktu,
-                    nilaiSekarang: _filterWaktu,
+                    nilaiSekarang: _pilihanWaktu,
                     padaSaatDipilih: (hasil) {
                       setState(() {
-                        _filterWaktu = hasil;
+                        _pilihanWaktu = hasil;
                       });
                     },
                   );
                 },
                 child: _buildFilterDropdown(
                   Icons.access_time,
-                  "Waktu:",
-                  _filterWaktu,
+                  'Waktu:',
+                  _pilihanWaktu,
                 ),
               ),
             ),
@@ -1183,7 +1227,7 @@ Widget _buildKontenAturJadwal() {
               child: GestureDetector(
                 onTap: () {
                   _tampilkanPilihanFilter(
-                    judul: "Pilih Durasi Konseling",
+                    judul: 'Pilih Durasi Konseling',
                     opsiData: _listDurasi,
                     nilaiSekarang: _pilihanDurasi,
                     padaSaatDipilih: (hasil) {
@@ -1200,11 +1244,12 @@ Widget _buildKontenAturJadwal() {
                 },
                 child: _buildFilterDropdown(
                   Icons.hourglass_empty,
-                  "Durasi:",
+                  'Durasi:',
                   _pilihanDurasi,
                 ),
               ),
             ),
+
           ],
         ),
       ),
@@ -1212,7 +1257,7 @@ Widget _buildKontenAturJadwal() {
       const Padding(
         padding: EdgeInsets.all(16),
         child: Text(
-          "Pilih Tanggal dan Waktu",
+          'Pilih Tanggal dan Waktu',
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.bold,
@@ -1220,95 +1265,24 @@ Widget _buildKontenAturJadwal() {
         ),
       ),
 
-      _loadingJadwal
-          ? const Center(
-              child: Padding(
-                padding: EdgeInsets.all(20),
-                child: CircularProgressIndicator(),
-              ),
-            )
-          : Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
-                children: (_filterWaktu == "Semua"
-                        ? _jadwalDokter
-                        : _jadwalDokter.where((jadwal) {
-                            return jadwal["sesi"]
-                                    .toString()
-                                    .toLowerCase() ==
-                                _filterWaktu.toLowerCase();
-                          }).toList())
-                    .map((jadwal) {
-
-                  final bool dipilih =
-    jadwal["status"] == "booked";
-
-                  return Card(
-                    elevation: 3,
-                    color: dipilih
-                        ? Colors.green.shade50
-                        : Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius:
-                          BorderRadius.circular(16),
-                      side: BorderSide(
-                        color: dipilih
-                            ? const Color(0xff2d6a4f)
-                            : Colors.grey.shade300,
-                        width: 1.5,
-                      ),
-                    ),
-                    child: ListTile(
-                      leading: const Icon(
-                        Icons.access_time,
-                        color: Color(0xff2d6a4f),
-                      ),
-
-                      title: Text(
-                        jadwal["tanggal"].toString(),
-                      ),
-
-                      subtitle: Text(
-                        "${jadwal["jam"]} (${jadwal["sesi"]})",
-                      ),
-
-trailing: ElevatedButton(
-  onPressed: () async {
-
-    final String statusBaru =
-        dipilih ? "tersedia" : "booked";
-
-    await updateStatusJadwal(
-      jadwal["id"],
-      statusBaru,
-    );
-
-    await fetchJadwal();
-
-    if (_isSheetOpen &&
-        _updateHargaBottomSheet != null) {
-      _updateHargaBottomSheet!(() {});
-    }
-  },
-
-  style: ElevatedButton.styleFrom(
-    backgroundColor: dipilih
-        ? Colors.red
-        : const Color(0xff2d6a4f),
-  ),
-
-  child: Text(
-    dipilih ? "Batal" : "Pilih",
-    style: const TextStyle(
-      color: Colors.white,
-    ),
-  ),
-),
-                    ),
-                  );
-                }).toList(),
-              ),
+      Container(
+        height: 100,
+        margin: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.04),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Center(
+          child: Text(
+            'Area Input Tanggal Kalender Kelompok',
+            style: TextStyle(
+              color: Colors.grey,
+              fontSize: 12,
             ),
+          ),
+        ),
+      ),
+
     ],
   );
 }

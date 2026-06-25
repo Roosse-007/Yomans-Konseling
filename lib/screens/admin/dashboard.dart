@@ -1,10 +1,18 @@
+// Dashboard Admin
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:yomans_konseling/providers/auth_provider.dart';
+import 'package:yomans_konseling/providers/dokter_provider.dart';
 import 'package:yomans_konseling/screens/admin/Admin_Gejala_Screen.dart';
 import 'package:yomans_konseling/screens/admin/daftarPsikolog.dart';
+import 'package:yomans_konseling/screens/admin/tambahDataPsikolog.dart';
 import 'package:yomans_konseling/screens/auth/login.dart';
 import 'package:yomans_konseling/screens/berita/admin_berita_screen.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:yomans_konseling/services/api_service.dart';
+
+
 
 
 
@@ -27,8 +35,19 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class AdminDashboard extends StatelessWidget {
+class AdminDashboard extends StatefulWidget {
   const AdminDashboard({Key? key}) : super(key: key);
+
+  @override
+  State<AdminDashboard> createState() =>
+      _AdminDashboardState();
+}
+
+class _AdminDashboardState
+    extends State<AdminDashboard> {
+      int totalArtikel = 0;
+      int totalGejala = 0;
+      int totalPsikologApi = 0;
 
   // Definisi palet warna sesuai desain
   final Color primaryGreen = const Color(0xFF2E6B33);       // Hijau tua header & teks utama
@@ -38,6 +57,42 @@ class AdminDashboard extends StatelessWidget {
   final Color actionOrange = const Color(0xFFFF9800);       // Oranye tombol edit
   final Color actionRed = const Color(0xFFE53935);          // Merah tombol hapus
 
+  // ================= TAMBAH DI SINI =================
+
+  Future<void> fetchDashboard() async {
+    try {
+      final response = await http.get(
+        Uri.parse(
+          '${ApiService.baseUrl}/admin/dashboard',
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        setState(() {
+          totalPsikologApi =
+              data['total_psikolog'];
+
+          totalArtikel =
+              data['total_artikel'];
+
+          totalGejala =
+              data['total_gejala'];
+        });
+      }
+    } catch (e) {
+      print("ERROR DASHBOARD: $e");
+    }
+  }
+
+  // ================= LALU INI =================
+
+  @override
+  void initState() {
+    super.initState();
+    fetchDashboard();
+  }
   // --- KLIK EDIT POP-UP DIALOG ---
   void _showEditDialog(BuildContext context, String currentName) {
     final _formKey = GlobalKey<FormState>();
@@ -179,11 +234,19 @@ class AdminDashboard extends StatelessWidget {
           ),
         );
       },
+      
     );
+    
   }
+  
 
   @override
   Widget build(BuildContext context) {
+    final dokterProvider =
+    Provider.of<DokterProvider>(context);
+
+    final totalPsikolog =
+    dokterProvider.listDokter.length;
     return Scaffold(
       body: Stack(
         children: [
@@ -265,28 +328,28 @@ class AdminDashboard extends StatelessWidget {
                         margin: const EdgeInsets.only(top: 28),
                         child: InkWell(
                           onTap: () async {
-  await Provider.of<AuthProvider>(
-    context,
-    listen: false,
-  ).logout();
+                            await Provider.of<AuthProvider>(
+                              context,
+                              listen: false,
+                            ).logout();
 
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(
-      content: Text(
-        'Berhasil keluar dari Admin Panel',
-      ),
-      behavior: SnackBarBehavior.floating,
-    ),
-  );
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Berhasil keluar dari Admin Panel',
+                                ),
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
 
-  Navigator.pushAndRemoveUntil(
-    context,
-    MaterialPageRoute(
-      builder: (context) => const LoginPage(),
-    ),
-    (route) => false,
-  );
-},
+                            Navigator.pushAndRemoveUntil(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const LoginPage(),
+                              ),
+                              (route) => false,
+                            );
+                          },
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                             decoration: BoxDecoration(
@@ -330,70 +393,246 @@ class AdminDashboard extends StatelessWidget {
                               padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
                               children: [
                                 // Judul Besar Dashboard
-                                Text(
-                                  'Admin Dashboard:\nKelola Konten & Data',
-                                  style: TextStyle(
-                                    color: primaryGreen,
-                                    fontSize: 26,
-                                    fontWeight: FontWeight.bold,
-                                    height: 1.2,
-                                  ),
-                                ),
-                                const SizedBox(height: 20),
+                                // ================= GREETING =================
 
-                                // ==========================================
-                                // SECTION 1: KELOLA PSIKOLOG
-                                // ==========================================
-                                _buildMainSectionHeader(
-                                  title: 'Kelola Psikolog',
-                                  subtitle: 'Psikolog yang Terdaftar',
-                                  buttonText: 'Buka Daftar Psikolog',
-                                  iconData: Icons.psychology_outlined,
-                                  onHeaderButtonTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(builder: (context) => const DaftarPsikologAdminPage()),
-                                    );
-                                  },
-                                ),
-                                
-                                
-                                const SizedBox(height: 16),
+Container(
+  padding: const EdgeInsets.all(18),
+  decoration: BoxDecoration(
+    color: const Color(0xFFF5FAF3),
+    borderRadius: BorderRadius.circular(20),
+  ),
+  child: Row(
+    children: [
+      Container(
+        width: 60,
+        height: 60,
+        decoration: const BoxDecoration(
+          color: Color(0xFF2E6B33),
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(
+          Icons.waving_hand,
+          color: Colors.amber,
+          size: 28,
+        ),
+      ),
 
-                                // ==========================================
-                                // SECTION 2: KELOLA BERITA & EDUKASI
-                                // ==========================================
-                             _buildMainSectionHeader(
-                                title: 'Kelola Berita & Edukasi',
-                                subtitle: 'Artikel-Artikel',
-                                buttonText: 'Buka Daftar Berita',
-                                iconData: Icons.menu_book,
-                                onHeaderButtonTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(builder: (context) => const AdminBeritaScreen()),
-                                  );
-                                },
-                              ),
+      const SizedBox(width: 14),
+
+      const Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "Selamat datang, Admin 👋",
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+              ),
+            ),
+            SizedBox(height: 4),
+            Text(
+              "Kelola data psikolog, artikel edukasi dan gejala konseling.",
+            ),
+          ],
+        ),
+      ),
+    ],
+  ),
+),
+
+const SizedBox(height: 20),
+
+
+// ================= STATISTIK =================
+
+Row(
+  children: [
+
+    Expanded(
+      child: _buildStatCard(
+        icon: Icons.psychology,
+        title: "Psikolog",
+        total: totalPsikologApi.toString(),
+        color: Colors.green,
+      ),
+    ),
+
+    const SizedBox(width: 12),
+
+    Expanded(
+      child: _buildStatCard(
+        icon: Icons.menu_book,
+        title: "Artikel",
+        total: totalArtikel.toString(),
+        color: Colors.blue,
+      ),
+    ),
+
+    const SizedBox(width: 12),
+
+    Expanded(
+      child: _buildStatCard(
+        icon: Icons.health_and_safety,
+        title: "Gejala",
+        total: totalGejala.toString(),
+        color: Colors.purple,
+      ),
+    ),
+
+  ],
+),
+
+// ================= KELOLA PSIKOLOG =================
+
+_buildDashboardCard(
+  icon: Icons.psychology,
+  iconColor: Colors.green,
+  title: "Kelola Psikolog",
+  subtitle: "Data psikolog yang terdaftar",
+  buttonText: "Buka Daftar Psikolog",
+  onTap: () {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const DaftarPsikologAdminPage(),
+      ),
+    );
+  },
+),
+
+const SizedBox(height: 16),
+
+// ================= KELOLA ARTIKEL =================
+
+_buildDashboardCard(
+  icon: Icons.menu_book,
+  iconColor: Colors.blue,
+  title: "Kelola Artikel & Edukasi",
+  subtitle: "Kelola artikel dan edukasi",
+  buttonText: "Buka Daftar Artikel",
+  onTap: () {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const AdminBeritaScreen(),
+      ),
+    );
+  },
+),
+
+const SizedBox(height: 16),
+
+// ================= KELOLA GEJALA =================
+
+_buildDashboardCard(
+  icon: Icons.health_and_safety,
+  iconColor: Colors.purple,
+  title: "Kelola Gejala",
+  subtitle: "Kelola data gejala konseling",
+  buttonText: "Buka Daftar Gejala",
+  onTap: () {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const AdminGejalaScreen(),
+      ),
+    );
+  },
+),
+
+const SizedBox(height: 16),
+  
+
+
+// ================= AKSI CEPAT =================
+
+Container(
+  padding: const EdgeInsets.all(16),
+  decoration: BoxDecoration(
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(20),
+    boxShadow: [
+      BoxShadow(
+        color: Colors.black12,
+        blurRadius: 8,
+      ),
+    ],
+  ),
+
+  child: Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+
+      const Text(
+        "Aksi Cepat",
+        style: TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 18,
+        ),
+      ),
+
+      const SizedBox(height: 16),
+
+      Row(
+        children: [
+
+          Expanded(
+            child: ElevatedButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const TambahPsikologPage(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.add),
+              label: const Text("Psikolog"),
+            ),
+          ),
+
+          const SizedBox(width: 8),
+
+          Expanded(
+            child: ElevatedButton.icon(
+              onPressed: () {
+                Navigator.push(
+  context,
+  MaterialPageRoute(
+    builder: (_) => const AdminBeritaScreen(
+      openTambahDialog: true,
+    ),
+  ),
+);
+              },
+              icon: const Icon(Icons.add),
+              label: const Text("Artikel"),
+            ),
+          ),
+
+          Expanded(
+            child: ElevatedButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const AdminGejalaScreen(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.add),
+              label: const Text("Gejala"),
+            ),
+          ),
+        ],
+      ),
+    ],
+  ),
+),
                                 
 
-                                // ==========================================
-                                // SECTION 3: KELOLA GEJALA
-                                // ==========================================
-                                _buildMainSectionHeader(
-                                  title: 'Kelola Gejala',
-                                  subtitle: 'Gejala-Gejala',
-                                  buttonText: 'Buka Daftar Gejala',
-                                  iconData: Icons.add_moderator_outlined,
-                                  onHeaderButtonTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => AdminGejalaScreen(),
-                                      ),
-                                    );
-                                  },
-                                ),
+                                
                                
                               ],
                             ),
@@ -449,6 +688,127 @@ class AdminDashboard extends StatelessWidget {
   Widget shadowContainer({required double width, required double height, required Widget child}) {
     return SizedBox(width: width, height: height, child: child);
   }
+  // ====================== BUILD STAT CARD ======================
+
+Widget _buildStatCard({
+  required IconData icon,
+  required String title,
+  required String total,
+  required Color color,
+}) {
+  return Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.05),
+          blurRadius: 8,
+          offset: const Offset(0, 3),
+        ),
+      ],
+    ),
+    child: Column(
+      children: [
+        Icon(icon, color: color, size: 32),
+        const SizedBox(height: 10),
+        Text(
+          total,
+          style: const TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          title,
+          textAlign: TextAlign.center,
+        ),
+      ],
+    ),
+  );
+}
+
+// ====================== BUILD DASHBOARD CARD ======================
+
+Widget _buildDashboardCard({
+  required IconData icon,
+  required Color iconColor,
+  required String title,
+  required String subtitle,
+  required String buttonText,
+  required VoidCallback onTap,
+}) {
+  return Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.05),
+          blurRadius: 8,
+          offset: const Offset(0, 3),
+        ),
+      ],
+    ),
+    child: Row(
+      children: [
+        Container(
+          width: 60,
+          height: 60,
+          decoration: BoxDecoration(
+            color: iconColor.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Icon(
+            icon,
+            color: iconColor,
+            size: 30,
+          ),
+        ),
+
+        const SizedBox(width: 16),
+
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: primaryGreen,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  color: Colors.black54,
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        ElevatedButton(
+          onPressed: onTap,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: iconColor,
+          ),
+          child: Text(
+            buttonText,
+            style: const TextStyle(color: Colors.white),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
 
   // --- WIDGET HELPER BUILDER UNTUK MATRIKS DASHBOARD ---
 

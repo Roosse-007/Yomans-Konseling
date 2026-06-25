@@ -796,6 +796,40 @@ def berita():
         print("BERITA ERROR:", e)
         return jsonify({"status": "error", "message": "Gagal mengambil berita"}), 500
 
+@app.route("/api/admin/dashboard", methods=["GET"])
+def admin_dashboard():
+    try:
+        db = get_db()
+        cur = db.cursor(dictionary=True)
+
+        # Total psikolog
+        cur.execute("SELECT COUNT(*) AS total FROM dokter")
+        total_psikolog = cur.fetchone()["total"]
+
+        # Total artikel
+        cur.execute("SELECT COUNT(*) AS total FROM berita")
+        total_artikel = cur.fetchone()["total"]
+
+        # Total gejala
+        cur.execute("SELECT COUNT(*) AS total FROM gejala")
+        total_gejala = cur.fetchone()["total"]
+
+        cur.close()
+        db.close()
+
+        return jsonify({
+            "status": "success",
+            "total_psikolog": total_psikolog,
+            "total_artikel": total_artikel,
+            "total_gejala": total_gejala
+        }), 200
+
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
 
 # ================= DOKTER =================
 @app.route("/api/dokter", methods=["GET"])
@@ -1417,9 +1451,6 @@ def cancel_booking():
         print("CANCEL BOOKING ERROR:", e)
         return jsonify({"status": "error", "message": str(e)}), 500
     
-# ============================================================
-# ================= FITUR CRUD DASHBOARD ADMIN ================
-# ============================================================
 
 import json # Pastikan ini sudah di-import di bagian paling atas file app.py Anda
 
@@ -2628,5 +2659,180 @@ def update_user_notifications():
         error_res.headers.add("Access-Control-Allow-Origin", "*")
         return error_res, 500
 
+# ==================== TAMBAH FAVORIT ====================
+@app.route("/api/favorit", methods=["POST"])
+def tambah_favorit():
+
+    try:
+
+        data = request.get_json()
+
+        user_id = data.get("user_id")
+        dokter_id = data.get("dokter_id")
+
+        db = get_db()
+        cur = db.cursor()
+
+        cur.execute(
+            """
+            INSERT INTO favorit_psikolog
+            (
+                user_id,
+                dokter_id
+            )
+            VALUES (%s,%s)
+            """,
+            (
+                user_id,
+                dokter_id
+            )
+        )
+
+        db.commit()
+
+        return jsonify({
+            "status":"success"
+        })
+
+    except Exception as e:
+
+        return jsonify({
+            "status":"error",
+            "message":str(e)
+        }),500
+        
+# ================= GET FAVORIT USER =================
+@app.route("/api/favorit/<int:user_id>")
+def get_favorit(user_id):
+
+    db = get_db()
+    cur = db.cursor(dictionary=True)
+
+    cur.execute(
+        """
+        SELECT dokter_id
+        FROM favorit_psikolog
+        WHERE user_id=%s
+        """,
+        (user_id,)
+    )
+
+    data = cur.fetchall()
+
+    return jsonify({
+        "status":"success",
+        "data":data
+    })
+
+# ================= HAPUS FAVORIT =================
+@app.route("/api/favorit", methods=["DELETE"])
+def hapus_favorit():
+
+    try:
+
+        data = request.get_json()
+
+        user_id = data.get("user_id")
+        dokter_id = data.get("dokter_id")
+
+        db = get_db()
+        cur = db.cursor()
+
+        cur.execute(
+            """
+            DELETE FROM favorit_psikolog
+            WHERE user_id=%s
+            AND dokter_id=%s
+            """,
+            (
+                user_id,
+                dokter_id
+            )
+        )
+
+        db.commit()
+
+        return jsonify({
+            "status":"success"
+        })
+
+    except Exception as e:
+
+        return jsonify({
+            "status":"error",
+            "message":str(e)
+        }),500
+
+# ================= DATA PSIKOLOG + TOTAL FAVORIT =================
+@app.route("/api/admin/dokter-favorit", methods=["GET"])
+def dokter_favorit():
+
+    try:
+
+        db = get_db()
+        cur = db.cursor(dictionary=True)
+
+        cur.execute("""
+            SELECT
+                d.*,
+                COUNT(fp.id) AS total_favorit
+
+            FROM dokter d
+
+            LEFT JOIN favorit_psikolog fp
+                ON d.id = fp.dokter_id
+
+            GROUP BY d.id
+        """)
+
+        data = cur.fetchall()
+
+        return jsonify({
+            "status": "success",
+            "data": data
+        })
+
+    except Exception as e:
+
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+        
+# ================= ADMIN DASHBOARD =================
+@app.route("/api/admin/dashboard", methods=["GET"])
+def dashboard():
+    try:
+        db = get_db()
+        cur = db.cursor(dictionary=True)
+
+        # Total psikolog
+        cur.execute("SELECT COUNT(*) AS total FROM dokter")
+        total_psikolog = cur.fetchone()["total"]
+
+        # Total artikel
+        cur.execute("SELECT COUNT(*) AS total FROM berita")
+        total_artikel = cur.fetchone()["total"]
+
+        # Total gejala
+        cur.execute("SELECT COUNT(*) AS total FROM gejala")
+        total_gejala = cur.fetchone()["total"]
+
+        cur.close()
+        db.close()
+
+        return jsonify({
+            "status": "success",
+            "total_psikolog": total_psikolog,
+            "total_artikel": total_artikel,
+            "total_gejala": total_gejala
+        }), 200
+
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+        
 if __name__ == "__main__":
     app.run(debug=True, use_reloader=False, host="0.0.0.0", port=5000)

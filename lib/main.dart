@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:yomans_konseling/providers/ulasan_provider.dart';
+import 'package:yomans_konseling/providers/favorit_provider.dart';
 
 import 'providers/auth_provider.dart';
 import 'providers/dokter_provider.dart';
@@ -22,20 +23,26 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(
-          create: (_) => AuthProvider(),
-        ),
-        ChangeNotifierProvider(
-          create: (_) => DokterProvider(),
-        ),
-        ChangeNotifierProvider(
-          create: (_) => UserProvider(),
-        ),
+  ChangeNotifierProvider(
+    create: (_) => AuthProvider(),
+  ),
 
-        ChangeNotifierProvider(
-        create: (_) => UlasanProvider(),
-    ),
-      ],
+  ChangeNotifierProvider(
+    create: (_) => DokterProvider(),
+  ),
+
+  ChangeNotifierProvider(
+    create: (_) => UserProvider(),
+  ),
+
+  ChangeNotifierProvider(
+    create: (_) => UlasanProvider(),
+  ),
+
+  ChangeNotifierProvider(
+    create: (_) => FavoritProvider(),
+  ),
+],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         title: 'Yomans Konseling',

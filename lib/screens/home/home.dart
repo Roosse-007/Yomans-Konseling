@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:yomans_konseling/providers/favorit_provider.dart';
 import 'package:yomans_konseling/screens/dokter/PilihPsikologPage.dart';
 import 'package:yomans_konseling/screens/dokter/detail_booking.dart';
 
@@ -23,13 +24,30 @@ class _HomePageState extends State<HomePage> {
   bool _isPressedOnline = false;
 
   @override
-  void initState() {
-    super.initState();
-    // Memastikan data dokter selalu ditarik versi terbaru saat halaman dibuka
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<DokterProvider>(context, listen: false).fetchDokter();
-    });
-  }
+void initState() {
+  super.initState();
+
+  WidgetsBinding.instance.addPostFrameCallback((_) async {
+
+    // Ambil daftar dokter
+    await Provider.of<DokterProvider>(
+      context,
+      listen: false,
+    ).fetchDokter();
+
+    // Ambil user yang sedang login
+    final auth = Provider.of<AuthProvider>(
+      context,
+      listen: false,
+    );
+
+    // Ambil daftar favorit user
+    await Provider.of<FavoritProvider>(
+      context,
+      listen: false,
+    ).fetchFavorit(auth.userId);
+  });
+}
 
   @override
   Widget build(BuildContext context) {

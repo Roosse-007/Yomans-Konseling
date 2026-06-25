@@ -17,7 +17,7 @@ List<Map<String, dynamic>> get listDokter => _listDokter;
 
 // ================= FETCH DATA (FIXED TOTAL) =================
   Future<void> fetchDokter() async {
-    final String url = '$_baseUrl/dokter';
+    final String url = '$_baseUrl/admin/dokter-favorit';
     try {
       final response = await http.get(Uri.parse(url));
 

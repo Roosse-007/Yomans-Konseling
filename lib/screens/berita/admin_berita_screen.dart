@@ -5,7 +5,12 @@ import 'package:yomans_konseling/services/api_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class AdminBeritaScreen extends StatefulWidget {
-  const AdminBeritaScreen({Key? key}) : super(key: key);
+  final bool openTambahDialog;
+
+  const AdminBeritaScreen({
+    Key? key,
+    this.openTambahDialog = false,
+  }) : super(key: key);
 
   @override
   State<AdminBeritaScreen> createState() => _AdminBeritaScreenState();
@@ -15,6 +20,8 @@ class _AdminBeritaScreenState extends State<AdminBeritaScreen> {
   List<dynamic> _listBerita = [];
   bool _isLoading = true;
 
+  
+
   // Controller Form
   final _judulController = TextEditingController();
   final _isiController = TextEditingController();
@@ -22,10 +29,17 @@ class _AdminBeritaScreenState extends State<AdminBeritaScreen> {
   final _linkController = TextEditingController();
 
   @override
-  void initState() {
-    super.initState();
-    fetchBerita();
-  }
+void initState() {
+  super.initState();
+
+  fetchBerita();
+
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (widget.openTambahDialog) {
+      _showFormDialog(); // dialog tambah berita
+    }
+  });
+}
 
   @override
   void dispose() {
