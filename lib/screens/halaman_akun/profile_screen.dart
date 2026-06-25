@@ -279,7 +279,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           items: const [
             BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home), label: "Beranda"),
             BottomNavigationBarItem(icon: Icon(Icons.book_outlined), activeIcon: Icon(Icons.book), label: "Informasi"),
-            BottomNavigationBarItem(icon: Icon(Icons.history_outlined), activeIcon: Icon(Icons.history), label: "Riwayat"),
+            BottomNavigationBarItem(
+      icon: Icon(Icons.receipt_long_rounded),
+      label: "Riwayat",
+    ),
             BottomNavigationBarItem(icon: Icon(Icons.person_outline), activeIcon: Icon(Icons.person), label: "Profile"),
           ],
         ),

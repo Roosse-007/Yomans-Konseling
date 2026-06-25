@@ -13,6 +13,9 @@ class AuthProvider with ChangeNotifier {
   String? _token;
   bool _isLoading = true;
 
+  // ================= URL SETTING =================
+  final String _baseUrl = 'http://127.0.0.1:5000';
+
   // ================= GETTERS =================
   Map<String, dynamic>? get user => _user;
   String? get token => _token;
@@ -87,12 +90,50 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
   }
 
+// ================= UPDATE DATA PROFIL KE FLASK =================
+  Future<bool> updateProfileApi({
+    required String username,
+    required String email,
+  }) async {
+    if (_user == null) return false;
+
+    try {
+      final String idUser = _user!['id'].toString();
+      
+      // Jika Anda testing menggunakan Emulator Android, ganti 127.0.0.1 menjadi 10.0.2.2
+      var uri = Uri.parse('$_baseUrl/api/user/update');
+
+      var response = await http.post(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({
+          'id': idUser,
+          'username': username,
+          'email': email,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return true;
+      }
+      
+      debugPrint("FLASK UPDATE FAILED: ${response.statusCode} - ${response.body}");
+      return false;
+    } catch (e) {
+      debugPrint("FLASK UPDATE ERROR: $e");
+      return false;
+    }
+  }
+
   // ================= UPLOAD FOTO PROFIL =================
   Future<bool> uploadProfilePicture(XFile pickedFile) async {
     if (_user == null) return false;
 
     try {
-      var uri = Uri.parse('http://127.0.0.1:5000/api/update_foto');
+      var uri = Uri.parse('$_baseUrl/api/update_foto');
       var request = http.MultipartRequest('POST', uri);
 
       request.fields['id'] = _user!['id'].toString();
@@ -135,6 +176,86 @@ class AuthProvider with ChangeNotifier {
       return false;
     } catch (e) {
       debugPrint("UPLOAD ERROR: $e");
+      return false;
+    }
+  }
+
+  // ================= UBAH PASSWORD KE FLASK =================
+  Future<Map<String, dynamic>> changePasswordApi({
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    if (_user == null) return {'success': false, 'message': 'Sesi pengguna tidak ditemukan'};
+
+    try {
+      final String idUser = _user!['id'].toString();
+      var uri = Uri.parse('$_baseUrl/api/user/change-password');
+
+      var response = await http.post(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({
+          'id': idUser,
+          'old_password': oldPassword,
+          'new_password': newPassword,
+        }),
+      );
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return {'success': true, 'message': data['message'] ?? 'Password berhasil diperbarui'};
+      } else {
+        return {'success': false, 'message': data['error'] ?? 'Gagal memperbarui password'};
+      }
+    } catch (e) {
+      debugPrint("CHANGE PASSWORD ERROR: $e");
+      return {'success': false, 'message': 'Terjadi kesalahan jaringan atau server'};
+    }
+  }
+
+  // ================= UPDATE NOTIFIKASI KE FLASK =================
+  Future<bool> updateNotificationApi({
+    required bool pushNotif,
+    required bool emailNotif,
+    required bool promoNotif,
+  }) async {
+    if (_user == null) return false;
+
+    try {
+      final String idUser = _user!['id'].toString();
+      var uri = Uri.parse('$_baseUrl/api/user/notification');
+
+      var response = await http.post(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({
+          'id': idUser,
+          'push_notifications': pushNotif ? 1 : 0,  // Diubah ke int (1/0) untuk MySQL BIT/TINYINT
+          'email_notifications': emailNotif ? 1 : 0,
+          'promo_notifications': promoNotif ? 1 : 0,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        // Update local state agar sinkron di memori aplikasi
+        final updatedUser = Map<String, dynamic>.from(_user!);
+        updatedUser['push_notifications'] = pushNotif ? 1 : 0;
+        updatedUser['email_notifications'] = emailNotif ? 1 : 0;
+        updatedUser['promo_notifications'] = promoNotif ? 1 : 0;
+        await updateUser(updatedUser);
+        return true;
+      }
+      
+      debugPrint("NOTIFICATION API FAILED: ${response.statusCode}");
+      return false;
+    } catch (e) {
+      debugPrint("NOTIFICATION API ERROR: $e");
       return false;
     }
   }

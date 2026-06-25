@@ -2539,7 +2539,142 @@ def boleh_ulasan(user_id,booking_id):
 
     })
 
+@app.route('/api/user/update', methods=['POST', 'OPTIONS'])
+def update_user_profile():
+    # Menangani preflight request CORS dari Flutter Web secara otomatis
+    if request.method == 'OPTIONS':
+        return jsonify({"message": "CORS preflight OK"}), 200
+        
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "Payload JSON tidak ditemukan"}), 400
+            
+        user_id = data.get('id')
+        username = data.get('username')
+        email = data.get('email')
 
+        if not user_id or not username or not email:
+            return jsonify({"error": "Data tidak lengkap"}), 400
+
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Eksekusi update data ke database sesuai struktur tabel user
+        query = "UPDATE user SET username = %s, email = %s WHERE id = %s"
+        cursor.execute(query, (username, email, user_id))
+        
+        conn.commit()
+        
+        cursor.close()
+        conn.close()
+
+        return jsonify({"message": "Profil berhasil diperbarui ke MySQL"}), 200
+
+    except Exception as e:
+        print(f"Error internal Flask: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+    
+@app.route('/api/user/change-password', methods=['POST', 'OPTIONS'])
+def change_password():
+    if request.method == 'OPTIONS':
+        return jsonify({"message": "CORS preflight OK"}), 200
+
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "Payload JSON tidak ditemukan"}), 400
+
+        user_id = data.get('id')
+        old_password = data.get('old_password')
+        new_password = data.get('new_password')
+
+        if not user_id or not old_password or not new_password:
+            return jsonify({"error": "Data tidak lengkap"}), 400
+
+        conn = get_db()
+        cursor = conn.cursor(dictionary=True) # Gunakan dictionary=True agar mudah mengambil nama kolom
+
+        # 1. Ambil password hash lama dari user berdasarkan ID
+        query_select = "SELECT password FROM user WHERE id = %s"
+        cursor.execute(query_select, (user_id,))
+        user = cursor.fetchone()
+
+        if not user:
+            cursor.close()
+            conn.close()
+            return jsonify({"error": "Pengguna tidak ditemukan"}), 404
+
+        # 2. Validasi apakah password lama cocok dengan hash di database
+        # Werkzeug secara otomatis mendeteksi metode scrypt dari string hash Anda
+        if not check_password_hash(user['password'], old_password):
+            cursor.close()
+            conn.close()
+            return jsonify({"error": "Password saat ini salah!"}), 401
+
+        # 3. Buat hash baru menggunakan scrypt untuk password baru
+        new_password_hash = generate_password_hash(new_password, method='scrypt')
+
+        # 4. Update ke database MySQL
+        query_update = "UPDATE user SET password = %s WHERE id = %s"
+        cursor.execute(query_update, (new_password_hash, user_id))
+        conn.commit()
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({"message": "Password berhasil diperbarui"}), 200
+
+    except Exception as e:
+        print(f"Error pada change_password: {str(e)}")
+        return jsonify({"error": "Terjadi kesalahan internal server"}), 500
+    
+@app.route('/api/user/notification', methods=['POST', 'OPTIONS'])
+def update_user_notifications():
+    if request.method == 'OPTIONS':
+        response = jsonify({"message": "CORS preflight OK"})
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        response.headers.add("Access-Control-Allow-Headers", "Content-Type,Authorization")
+        response.headers.add("Access-Control-Allow-Methods", "POST,OPTIONS")
+        return response, 200
+
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "Payload JSON tidak ditemukan"}), 400
+
+        user_id = data.get('id')
+        push_notifications = data.get('push_notifications')
+        email_notifications = data.get('email_notifications')
+        promo_notifications = data.get('promo_notifications')
+
+        if user_id is None:
+            return jsonify({"error": "User ID wajib disertakan"}), 400
+
+        conn = get_db()
+        cursor = conn.cursor()
+
+        # Eksekusi update status toggle ke database MySQL
+        query = """
+            UPDATE user 
+            SET push_notifications = %s, email_notifications = %s, promo_notifications = %s 
+            WHERE id = %s
+        """
+        cursor.execute(query, (push_notifications, email_notifications, promo_notifications, user_id))
+        conn.commit()
+
+        cursor.close()
+        conn.close()
+
+        res = jsonify({"message": "Pengaturan notifikasi berhasil disimpan ke MySQL"})
+        res.headers.add("Access-Control-Allow-Origin", "*")
+        return res, 200
+
+    except Exception as e:
+        print(f"Error pada update_user_notifications: {str(e)}")
+        error_res = jsonify({"error": "Gagal menyimpan pengaturan ke server"})
+        error_res.headers.add("Access-Control-Allow-Origin", "*")
+        return error_res, 500
 
 if __name__ == "__main__":
     app.run(debug=True, use_reloader=False, host="0.0.0.0", port=5000)
