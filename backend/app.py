@@ -72,7 +72,7 @@ except Exception as e:
 def home():
     return "API Konseling & Mental Health Aktif 🚀"
 
-DEFAULT_IMAGE = "http://localhost:5000/uploads/default.jpg"
+DEFAULT_IMAGE = "http://127.0.0.1:5000/uploads/default.jpg"
 
 # ================= LOGIN =================
 @app.route("/api/login", methods=["POST"])
@@ -1423,163 +1423,101 @@ def cancel_booking():
 
 import json # Pastikan ini sudah di-import di bagian paling atas file app.py Anda
 
-@app.route("/api/admin/dokter", methods=["POST"])
-
+@app.route("/api/admin/dokter", methods=["POST", "OPTIONS"])
 def admin_tambah_dokter():
+    # 🔥 FIX CORS: Menangani preflight request dari Flutter Web
+    if request.method == 'OPTIONS':
+        response = jsonify({"message": "CORS preflight OK"})
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        response.headers.add("Access-Control-Allow-Headers", "Content-Type,Authorization")
+        response.headers.add("Access-Control-Allow-Methods", "POST,OPTIONS")
+        return response, 200
 
     try:
-
         # ===============================
-
         # AMBIL DATA DARI FLUTTER
-
         # ===============================
-
         nama = request.form.get("nama", "").strip()
-
         tags_raw = request.form.get("tags", "").strip()
-
         jadwal = request.form.get("jadwal", "").strip()
-
         harga_awal = request.form.get("harga_awal", "0").strip()
-
         harga_diskon = request.form.get("harga_diskon", "0").strip()
-
         durasi = request.form.get("durasi", "1 jam").strip()
 
-
-
-        # 2. LOGIKA RAPIKAN FORMAT TAGS (Dibuat lebih robust)
-
+        # 2. LOGIKA RAPIKAN FORMAT TAGS
         tags = ""
-
         if tags_raw:
-
             clean_tags = tags_raw.strip()
-
-            # Coba parse jika formatnya JSON array, jika gagal anggap string biasa
-
             try:
-
                 if clean_tags.startswith('['):
-
                     tags_list = json.loads(clean_tags)
-
                     if isinstance(tags_list, list):
-
                         tags = ", ".join([str(t) for t in tags_list])
-
                     else:
-
                         tags = clean_tags
-
                 else:
-
                     tags = clean_tags
-
             except:
-
-                # Jika JSON error, bersihkan karakter pemisah manual
-
                 tags = clean_tags.replace('[', '').replace(']', '').replace('"', '').replace("'", "")
-
         
-
-        # Bersihkan tags dari karakter sisa yang tidak diinginkan
-
         tags = tags.strip(", ")
 
-
-
         # 3. VALIDASI
-
         if not nama or not tags or not harga_diskon:
-
             return jsonify({
-
                 "status": "error",
-
                 "message": "Data Nama, Tags, atau Harga Diskon wajib diisi"
-
             }), 400
 
-
-
-        # 4. FOTO (LOGIKA UPLOAD)
-
+        # 4. FOTO (LOGIKA UPLOAD YANG DISINKRONKAN)
         foto = ""
-
         if 'foto' in request.files:
-
             file = request.files['foto']
-
             if file and file.filename != '':
-
                 filename = secure_filename(file.filename)
-
-                # Pastikan direktori ada
-
-                os.makedirs(app.config.get('UPLOAD_FOLDER', 'uploads'), exist_ok=True) 
-
-                filepath = os.path.join(app.config.get('UPLOAD_FOLDER', 'uploads'), filename)
-
+                
+                # Gunakan folder 'uploads' utama yang sejajar dengan app.py
+                base_upload_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
+                os.makedirs(base_upload_dir, exist_ok=True)
+                
+                filepath = os.path.join(base_upload_dir, filename)
                 file.save(filepath)
-
-                foto = f"http://127.0.0.1:5000/uploads/{filename}"
-
-
+                
+                # 🔥 FIX UTAMA: Simpan path relatif "uploads/nama_file.png" ke database MySQL
+                # Ini mencegah penulisan "uploads/uploads/..." di sisi Flutter
+                foto = f"uploads/{filename}"
 
         # 5. DATABASE INSERT
-
-        db = get_db()
-
+        db = get_db() # Pastikan menggunakan fungsi koneksi database Anda yang benar
         cur = db.cursor()
 
-
-
         query = """
-
             INSERT INTO dokter 
-
             (nama, tags, jadwal, image_url, harga_awal, harga_diskon, durasi) 
-
             VALUES (%s, %s, %s, %s, %s, %s, %s)
-
         """
-
         values = (nama, tags, jadwal, foto, harga_awal, harga_diskon, durasi)
-
         
-
         cur.execute(query, values)
-
         db.commit()
-
         cur.close()
+        db.close()
 
-
-
-        return jsonify({
-
+        res = jsonify({
             "status": "success",
-
             "message": "Dokter berhasil ditambahkan"
-
-        }), 201
-
-
+        })
+        res.headers.add("Access-Control-Allow-Origin", "*")
+        return res, 201
 
     except Exception as e:
-
-        print("EROR SERVER:", str(e))
-
-        return jsonify({
-
+        print("ERROR SERVER VIA ADD DOKTER:", str(e))
+        error_res = jsonify({
             "status": "error",
-
             "message": "Gagal menyimpan ke database: " + str(e)
-
-        }), 500
+        })
+        error_res.headers.add("Access-Control-Allow-Origin", "*")
+        return error_res, 500
 
     
 
@@ -2033,6 +1971,20 @@ def update_dokter(id):
         return jsonify({"status": "error", "message": str(e)}), 500
     
     # ================= GET JADWAL DOKTER =================
+@app.route('/static/uploads/<path:filename>')
+def serve_static_uploads_fallback(filename):
+    import os
+    from flask import send_from_directory
+    
+    # Cari di folder 'uploads' utama (tempat file dokter_11.png Anda berhasil disimpan)
+    base_upload_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
+    
+    # Jika file ada di folder uploads utama, kirimkan file tersebut
+    if os.path.exists(os.path.join(base_upload_dir, filename)):
+        return send_from_directory(base_upload_dir, filename)
+        
+    # Jika tidak ada, kembalikan 404 asli
+    return jsonify({"error": "File tidak ditemukan secara fisik"}), 404
 # ==========================================
 # 1. CREATE: TAMBAH JADWAL BARU (POST + OPTIONS)
 # ==========================================

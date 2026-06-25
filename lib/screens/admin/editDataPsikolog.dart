@@ -80,15 +80,46 @@ class _EditPsikologPageState extends State<EditPsikologPage> {
   Widget build(BuildContext context) {
     final dokterProvider = Provider.of<DokterProvider>(context, listen: false);
 
+    // 💡 DEFINISIKAN BASE URL BACKEND ANDA DI SINI
+    const String baseUrl = "http://127.0.0.1:5000"; 
+
+    // Logika pengaman penataan URL Gambar agar terhindar dari error 404
+    String finalImageUrl = "";
+    if (_oldImageUrl != null && _oldImageUrl!.isNotEmpty) {
+      if (_oldImageUrl!.startsWith('http')) {
+        finalImageUrl = _oldImageUrl!; // Jika dari DB sudah berupa full URL link
+      } else {
+        finalImageUrl = "$baseUrl/$_oldImageUrl"; // Jika berupa rute relatif "uploads/..."
+      }
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
-      appBar: AppBar(title: const Text('Edit Data Psikolog', style: TextStyle(color: Colors.black)), backgroundColor: Colors.white, centerTitle: true, elevation: 0),
+      appBar: AppBar(
+        title: const Text(
+          'Edit Data Psikolog', 
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 18),
+        ), 
+        backgroundColor: Colors.white, 
+        centerTitle: true, 
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        // 🔥 FIX: Mengubah tombol back menjadi gaya panah iOS (iOS style back arrow)
+        leading: IconButton(
+          icon: const Icon(
+            Icons.arrow_back_ios_new,
+            color: Colors.black,
+            size: 25,
+          ),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Form(
           key: _formKey,
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            // FOTO KOTAK DENGAN IKON KAMERA
+            // FOTO LINGKARAN DENGAN INDIKATOR EDIT
             Center(
               child: GestureDetector(
                 onTap: _pickImage,
@@ -100,8 +131,13 @@ class _EditPsikologPageState extends State<EditPsikologPage> {
                       child: ClipOval(
                         child: _imageBytes != null 
                           ? Image.memory(_imageBytes!, fit: BoxFit.cover) 
-                          : (_oldImageUrl != null && _oldImageUrl!.isNotEmpty 
-                              ? Image.network("$_oldImageUrl?v=$_cacheKey", fit: BoxFit.cover, errorBuilder: (c, o, s) => const Icon(Icons.person, size: 60))
+                          : (finalImageUrl.isNotEmpty 
+                              // 🔥 FIX: Memuat gambar menggunakan rute aman yang telah difilter
+                              ? Image.network(
+                                  "$finalImageUrl?v=$_cacheKey", 
+                                  fit: BoxFit.cover, 
+                                  errorBuilder: (c, o, s) => const Icon(Icons.person, size: 60, color: Colors.grey),
+                                )
                               : const Icon(Icons.person, size: 60, color: Colors.grey)),
                       ),
                     ),
@@ -110,7 +146,7 @@ class _EditPsikologPageState extends State<EditPsikologPage> {
                       child: Container(
                         padding: const EdgeInsets.all(8),
                         decoration: const BoxDecoration(color: Color(0xFF1B5E20), shape: BoxShape.circle),
-                        child: const Icon(Icons.edit, color: Colors.white, size: 20),
+                        child: const Icon(Icons.edit, color: Colors.white, size: 18),
                       ),
                     ),
                   ],
@@ -147,7 +183,11 @@ class _EditPsikologPageState extends State<EditPsikologPage> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1B5E20), padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1B5E20), 
+                  padding: const EdgeInsets.symmetric(vertical: 16), 
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
                 onPressed: () async {
                   if (_formKey.currentState!.validate()) {
                     bool success = await dokterProvider.editDokter({
