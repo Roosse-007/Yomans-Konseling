@@ -38,14 +38,15 @@ class _KelolaJadwalPageState extends State<KelolaJadwalPage> {
     super.dispose();
   }
 
-  // 1. Ambil Data Jadwal Spesifik Per Dokter
+// 1. Ambil Data Jadwal Spesifik Per Dokter
   Future<void> fetchJadwal() async {
     if (!mounted) return;
     setState(() => _loading = true);
 
     try {
+      // Ditambahkan .toString() pada ID untuk memastikan keandalan URL parser
       final response = await http.get(
-        Uri.parse("http://127.0.0.1:5000/api/dokter/${widget.dokterId}/jadwal"),
+        Uri.parse("http://127.0.0.1:5000/api/dokter/${widget.dokterId.toString()}/jadwal"),
       );
 
       if (response.statusCode == 200) {
@@ -57,10 +58,12 @@ class _KelolaJadwalPageState extends State<KelolaJadwalPage> {
           });
         }
       } else {
-        throw Exception("Gagal memuat data jadwal");
+        _showSnackBar("Gagal memuat jadwal [Status: ${response.statusCode}]");
+        if (mounted) setState(() => _loading = false);
       }
     } catch (e) {
       debugPrint("ERROR FETCH JADWAL = $e");
+      _showSnackBar("Gagal tersambung ke server.");
       if (mounted) {
         setState(() => _loading = false);
       }
@@ -74,7 +77,7 @@ class _KelolaJadwalPageState extends State<KelolaJadwalPage> {
         Uri.parse("http://127.0.0.1:5000/api/admin/jadwal"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
-          "dokter_id": widget.dokterId,
+          "dokter_id": widget.dokterId, // Dikirim sebagai int sesuai kebutuhan DB relasional
           "tanggal": tanggal,
           "jam": jam,
           "sesi": sesi,
@@ -85,9 +88,10 @@ class _KelolaJadwalPageState extends State<KelolaJadwalPage> {
         _tanggalController.clear();
         _jamController.clear();
         _showSnackBar("Jadwal berhasil disimpan!");
-        fetchJadwal(); // Refresh list secara otomatis
+        fetchJadwal(); // Refresh otomatis
       } else {
-        _showSnackBar("Gagal menambah jadwal.");
+        final data = jsonDecode(response.body);
+        _showSnackBar(data["message"] ?? "Gagal menambah jadwal.");
       }
     } catch (e) {
       debugPrint("ERROR TAMBAH JADWAL = $e");
@@ -99,14 +103,19 @@ class _KelolaJadwalPageState extends State<KelolaJadwalPage> {
   Future<void> hapusJadwal(int id) async {
     try {
       final response = await http.delete(
-        Uri.parse("http://127.0.0.1:5000/api/admin/jadwal/$id"),
+        Uri.parse("http://127.0.0.1:5000/api/admin/jadwal/${id.toString()}"),
       );
 
       if (response.statusCode == 200) {
         _showSnackBar("Jadwal berhasil dihapus");
-        fetchJadwal(); // Refresh list secara otomatis
+        fetchJadwal(); // Refresh otomatis
       } else {
-        _showSnackBar("Gagal menghapus jadwal.");
+        try {
+          final data = jsonDecode(response.body);
+          _showSnackBar("Gagal: ${data['message']}");
+        } catch (_) {
+          _showSnackBar("Gagal menghapus jadwal [${response.statusCode}].");
+        }
       }
     } catch (e) {
       debugPrint("ERROR HAPUS JADWAL = $e");
@@ -120,6 +129,32 @@ class _KelolaJadwalPageState extends State<KelolaJadwalPage> {
       SnackBar(content: Text(pesan)),
     );
   }
+
+  Future<void> generateJadwalOtomatis() async {
+  setState(() => _loading = true);
+  try {
+    final response = await http.post(
+      Uri.parse("http://127.0.0.1:5000/api/admin/jadwal/auto-generate"),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+        "dokter_id": widget.dokterId, // Otomatis mengirim ID dokter aktif (misal 11)
+      }),
+    );
+
+    final data = jsonDecode(response.body);
+    if (response.statusCode == 200) {
+      _showSnackBar(data["message"] ?? "Jadwal otomatis berhasil dibuat!");
+      fetchJadwal(); // Refresh list otomatis agar jadwal langsung muncul
+    } else {
+      _showSnackBar(data["message"] ?? "Gagal generate jadwal.");
+      setState(() => _loading = false);
+    }
+  } catch (e) {
+    debugPrint("ERROR AUTO GENERATE = $e");
+    _showSnackBar("Terjadi kesalahan jaringan.");
+    setState(() => _loading = false);
+  }
+}
 
   // Dialog Form Tambah Jadwal (Pop-up)
   void _showTambahJadwalDialog() {
@@ -213,6 +248,20 @@ class _KelolaJadwalPageState extends State<KelolaJadwalPage> {
         title: Text("Jadwal ${widget.namaDokter}"),
         backgroundColor: const Color(0xff2d6a4f),
         foregroundColor: Colors.white,
+        actions: [
+          // ========================================================
+          // TOMBOL GENERATE OTOMATIS (AUTO-SLOT)
+          // ========================================================
+          TextButton.icon(
+            onPressed: generateJadwalOtomatis, // Memanggil fungsi auto-generate ke Flask
+            icon: const Icon(Icons.flash_on, color: Colors.amber, size: 20),
+            label: const Text(
+              "Auto-Slot",
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -229,7 +278,7 @@ class _KelolaJadwalPageState extends State<KelolaJadwalPage> {
                   itemBuilder: (context, index) {
                     final item = _jadwal[index];
                     
-                    // Mengambil nilai 'id' murni dari DB (berdasarkan struktur phpMyAdmin Anda)
+                    // Mengambil nilai 'id' murni dari DB
                     final int? idJadwal = item["id"];
                     final String status = item["status"]?.toString().toLowerCase() ?? "tersedia";
                     final bool isBooked = status == "booked";
@@ -273,7 +322,7 @@ class _KelolaJadwalPageState extends State<KelolaJadwalPage> {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            // Tombol Hapus Aksi (Dikunci/Disabled jika status sudah 'booked')
+                            // Tombol Hapus Aksi (Disabled jika status 'booked')
                             IconButton(
                               icon: Icon(
                                 Icons.delete_outline,

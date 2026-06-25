@@ -1824,55 +1824,296 @@ def handle_gejala_by_id(id):
         except Exception as e:
             return jsonify({"status": "error", "message": str(e)}), 500
 
-# ================= DOKTER TOGGLE ANDALAN =================
+
+
+  # ================= PSIKOLOG ANDALAN KAMI POST =================
 @app.route("/api/admin/dokter/<int:id>/toggle-andalan", methods=["POST"])
 def toggle_andalan(id):
     try:
         db = get_db()
         cur = db.cursor(dictionary=True)
+        
+        # Cek status andalan dokter saat ini
         cur.execute("SELECT is_andalan FROM dokter WHERE id = %s", (id,))
         dokter = cur.fetchone()
+        
         if not dokter:
+            cur.close()
             return jsonify({"status": "error", "message": "Psikolog tidak ditemukan"}), 404
             
-        current_status = dokter.get("is_andalan") or 0
+        # Logika toggle status
+        current_status = dokter.get("is_andalan") if dokter.get("is_andalan") is not None else 0
         status_baru = 0 if current_status == 1 else 1
         
+        # Atur kustomisasi pesan notifikasi berdasarkan status baru
+        if status_baru == 1:
+            pesan_notifikasi = "Psikolog berhasil ditambahkan ke psikolog andalan kami"
+        else:
+            pesan_notifikasi = "Psikolog berhasil dihapus dari psikolog andalan kami"
+        
+        # Update data ke database
         cur.execute("UPDATE dokter SET is_andalan = %s WHERE id = %s", (status_baru, id))
         db.commit()
         cur.close()
-        return jsonify({"status": "success", "message": "Status berhasil diubah", "is_andalan": status_baru}), 200
+        
+        return jsonify({
+            "status": "success", 
+            "message": pesan_notifikasi, # Menggunakan pesan dinamis baru
+            "is_andalan": status_baru
+        }), 200
     except Exception as e:
+        print("TOGGLE ANDALAN ERROR:", e)
         return jsonify({"status": "error", "message": str(e)}), 500
 
-# ================= DOKTER GET ANDALAN =================
+# ================= PSIKOLOG ANDALAN KAMI GET =================
 @app.route("/api/user/dokter-andalan", methods=["GET"])
 def get_dokter_andalan():
     try:
         db = get_db()
         cur = db.cursor(dictionary=True)
+        
+        # Mengambil data psikolog yang diberi bintang (is_andalan = 1)
         cur.execute("SELECT id, nama, tags, image_url, harga_diskon FROM dokter WHERE is_andalan = 1 ORDER BY id DESC")
         data_andalan = cur.fetchall()
+        
         cur.close()
         return jsonify({"status": "success", "data": data_andalan}), 200
+        
     except Exception as e:
+        print("ERROR GET DOKTER ANDALAN:", e)
         return jsonify({"status": "error", "message": str(e)}), 500
-
-# ================= DOKTER UPDATE =================
+    # ================= ADMIN EDIT =================
 @app.route("/api/admin/dokter/<int:id>/update", methods=["POST"])
 def update_dokter(id):
+    db = None
     try:
         data = request.form
         db = get_db()
         cur = db.cursor(dictionary=True)
-        query = "UPDATE dokter SET nama=%s, tags=%s, jadwal=%s, harga_awal=%s, harga_diskon=%s, durasi=%s WHERE id=%s"
+
+        # Update data teks
+        query = """UPDATE dokter SET nama=%s, tags=%s, jadwal=%s, harga_awal=%s, harga_diskon=%s, durasi=%s WHERE id=%s"""
         cur.execute(query, (data.get("nama"), data.get("tags"), data.get("jadwal"), 
                             data.get("harga_awal"), data.get("harga_diskon"), data.get("durasi"), id))
+
+        # Update foto (jika ada)
+        if 'foto' in request.files:
+            file = request.files['foto']
+            if file and file.filename != '':
+                # Nama file fix (dokter_ID.png) agar URL konsisten
+                filename_unik = f"dokter_{id}.png"
+                file_path = os.path.join(UPLOAD_FOLDER, filename_unik)
+                file.save(file_path)
+                
+                image_url = f"http://127.0.0.1:5000/static/uploads/{filename_unik}"
+                cur.execute("UPDATE dokter SET image_url = %s WHERE id = %s", (image_url, id))
+                print(f"DEBUG: Sukses simpan foto ke {image_url}")
+
         db.commit()
         cur.close()
         return jsonify({"status": "success", "message": "Data berhasil diperbarui"}), 200
     except Exception as e:
+        if db: db.rollback()
+        print("UPDATE ERROR:", str(e))
         return jsonify({"status": "error", "message": str(e)}), 500
+    
+    # ================= GET JADWAL DOKTER =================
+# ==========================================
+# 1. CREATE: TAMBAH JADWAL BARU (POST + OPTIONS)
+# ==========================================
+@app.route("/api/admin/jadwal", methods=["POST", "OPTIONS"])
+def tambah_jadwal_dokter():
+    # Handle Preflight Request dari browser Chrome (CORS)
+    if request.method == "OPTIONS":
+        return jsonify({"status": "success"}), 200
+
+    try:
+        data = request.json
+        dokter_id = data.get("dokter_id")
+        tanggal = data.get("tanggal") 
+        jam = data.get("jam")         
+        sesi = data.get("sesi")       
+
+        if not all([dokter_id, tanggal, jam, sesi]):
+            return jsonify({"status": "error", "message": "Semua data form harus diisi!"}), 400
+
+        db = get_db()
+        cur = db.cursor()
+        
+        cur.execute("""
+            INSERT INTO jadwal_dokter (dokter_id, tanggal, jam, sesi, status)
+            VALUES (%s, %s, %s, %s, 'tersedia')
+        """, (int(dokter_id), tanggal, jam, sesi))
+        
+        db.commit()
+        cur.close()
+        db.close()
+
+        return jsonify({"status": "success", "message": "Jadwal berhasil disimpan!"}), 201
+
+    except Exception as e:
+        print("ERROR TAMBAH JADWAL:", e)
+        return jsonify({"status": "error", "message": f"Gagal menyimpan: {str(e)}"}), 500
+
+
+# ==========================================
+# 2. READ: AMBIL JADWAL PER DOKTER (GET + OPTIONS)
+# ==========================================
+@app.route("/api/dokter/<dokter_id>/jadwal", methods=["GET", "OPTIONS"])
+def get_jadwal_dokter(dokter_id):
+    if request.method == "OPTIONS":
+        return jsonify({"status": "success"}), 200
+
+    try:
+        db = get_db()
+        cur = db.cursor(dictionary=True)
+
+        cur.execute("""
+            SELECT id, dokter_id, tanggal, jam, sesi, status
+            FROM jadwal_dokter
+            WHERE dokter_id = %s
+            ORDER BY tanggal ASC, jam ASC
+        """, (int(dokter_id),))
+
+        data = cur.fetchall()
+        cur.close()
+        db.close()
+
+        # Konversi objek Date dan Time MySQL agar tidak crash saat di-json_encode
+        for item in data:
+            if item.get("tanggal"):
+                item["tanggal"] = str(item["tanggal"])
+            if item.get("jam"):
+                item["jam"] = str(item["jam"])
+
+        return jsonify({
+            "status": "success",
+            "data": data
+        }), 200
+
+    except Exception as e:
+        print("GET JADWAL ERROR:", e)
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+# ==========================================
+# 3. DELETE: HAPUS JADWAL BERDASARKAN ID (DELETE + OPTIONS)
+# ==========================================
+@app.route("/api/admin/jadwal/<id>", methods=["DELETE", "OPTIONS"])
+def hapus_jadwal_dokter(id):
+    if request.method == "OPTIONS":
+        return jsonify({"status": "success"}), 200
+
+    try:
+        db = get_db()
+        cur = db.cursor()
+        
+        cur.execute("DELETE FROM jadwal_dokter WHERE id = %s", (int(id),))
+        db.commit()
+        
+        row_count = cur.rowcount
+        cur.close()
+        db.close()
+
+        if row_count == 0:
+            return jsonify({"status": "error", "message": "Data jadwal tidak ditemukan!"}), 404
+
+        return jsonify({"status": "success", "message": "Jadwal berhasil dihapus"}), 200
+
+    except Exception as e:
+        print("ERROR HAPUS JADWAL:", e)
+        return jsonify({"status": "error", "message": str(e)}), 500
+    
+@app.route("/api/admin/jadwal/auto-generate", methods=["POST", "OPTIONS"])
+def auto_generate_jadwal():
+    if request.method == "OPTIONS":
+        return jsonify({"status": "success"}), 200
+
+    try:
+        data = request.json
+        dokter_id = data.get("dokter_id")
+
+        if not dokter_id:
+            return jsonify({"status": "error", "message": "ID Dokter harus dikirim!"}), 400
+
+        db = get_db()
+        cur = db.cursor()
+
+        # Mulai generate jadwal dari besok sampai 7 hari ke depan
+        hari_ini = datetime.now()
+        slot_dibuat = 0
+
+        for i in range(1, 8):  # Looping 7 hari
+            tanggal_slot = (hari_ini + timedelta(days=i)).strftime('%Y-%m-%d')
+            
+            # Kita buat otomatis slot default: Pagi jam 09:00:00
+            jam_slot = "09:00:00"
+            sesi_slot = "Pagi"
+
+            # Cek dulu agar tidak terjadi duplikat jadwal di tanggal yang sama untuk dokter ini
+            cur.execute("""
+                SELECT id FROM jadwal_dokter 
+                WHERE dokter_id = %s AND tanggal = %s AND jam = %s
+            """, (int(dokter_id), tanggal_slot, jam_slot))
+            
+            if not cur.fetchone():
+                # Jika belum ada, masukkan ke database
+                cur.execute("""
+                    INSERT INTO jadwal_dokter (dokter_id, tanggal, jam, sesi, status)
+                    VALUES (%s, %s, %s, %s, 'tersedia')
+                """, (int(dokter_id), tanggal_slot, jam_slot, sesi_slot))
+                slot_dibuat += 1
+
+        db.commit()
+        cur.close()
+        db.close()
+
+        return jsonify({
+            "status": "success", 
+            "message": f"Berhasil membuat {slot_dibuat} slot jadwal otomatis untuk 7 hari ke depan!"
+        }), 200
+
+    except Exception as e:
+        print("ERROR AUTO GENERATE:", e)
+        return jsonify({"status": "error", "message": str(e)}), 500
+    
+@app.route("/api/jadwal/<int:id>/status", methods=["PUT", "OPTIONS"])
+def update_status_jadwal(id):
+
+    if request.method == "OPTIONS":
+        return jsonify({"status": "success"}), 200
+
+    try:
+        data = request.get_json()
+        print("DATA =", data)
+
+        status = data["status"]
+
+        db = get_db()
+        cur = db.cursor()
+
+        cur.execute("""
+            UPDATE jadwal_dokter
+            SET status=%s
+            WHERE id=%s
+        """, (status, id))
+
+        db.commit()
+
+        print("ROW COUNT =", cur.rowcount)
+
+        cur.close()
+        db.close()
+
+        return jsonify({"status": "success"})
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()   # <-- penting
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
 
 if __name__ == "__main__":
     app.run(debug=True, use_reloader=False, host="0.0.0.0", port=5000)

@@ -80,6 +80,31 @@ Future<void> fetchJadwal() async {
   });
 }
 
+Future<void> updateStatusJadwal(
+  int id,
+  String status,
+) async {
+
+  final response = await http.put(
+    Uri.parse(
+      "http://127.0.0.1:5000/api/jadwal/$id/status",
+    ),
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: jsonEncode({
+      "status": status,
+    }),
+  );
+
+  print("UPDATE STATUS CODE = ${response.statusCode}");
+  print("UPDATE BODY = ${response.body}");
+
+  if (response.statusCode != 200) {
+    throw Exception("Gagal update status jadwal");
+  }
+}
+
 bool _loadingJadwal = false;
   final List<String> _listWaktu = ['Semua', 'Pagi', 'Siang', 'Sore', 'Malam'];
   final List<String> _listDurasi = ['30 Menit', '1 jam', '1.5 jam', '2 jam'];
@@ -190,18 +215,21 @@ String hargaFix =
     rupiah(hargaDiskonFinal);
 
 // Hitung persen diskon otomatis
-String diskonPersen = '';
+int diskon = 0;
 
 if (hargaAwalFinal > 0 &&
-    hargaDiskonFinal > 0) {
-  final int diskon =
-      (((hargaAwalFinal - hargaDiskonFinal) /
-                  hargaAwalFinal) *
-              100)
-          .round();
+    hargaDiskonFinal > 0 &&
+    hargaDiskonFinal < hargaAwalFinal) {
 
-  diskonPersen = '-$diskon%';
+  diskon =
+      (((hargaAwalFinal - hargaDiskonFinal) /
+              hargaAwalFinal) *
+          100)
+      .round();
 }
+
+final bool adaDiskon = diskon > 0;
+
             return Container(
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -304,28 +332,66 @@ if (hargaAwalFinal > 0 &&
                           ],
                         ),
                         const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            const SizedBox(width: 26),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Text(hargaCoret, style: TextStyle(fontSize: 11, color: Colors.grey[400], decoration: TextDecoration.lineThrough)),
-                                    const SizedBox(width: 4),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                      color: Colors.red[50],
-                                      child: Text(diskonPersen, style: const TextStyle(color: Colors.red, fontSize: 9, fontWeight: FontWeight.bold)),
-                                    )
-                                  ],
-                                ),
-                                Text(hargaFix, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black)),
-                              ],
-                            )
-                          ],
-                        )
+                       Row(
+  crossAxisAlignment: CrossAxisAlignment.start,
+  children: [
+
+    const SizedBox(width: 26),
+
+    Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+
+        if (adaDiskon)
+          Row(
+            children: [
+
+              Text(
+                hargaCoret,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.grey[400],
+                  decoration: TextDecoration.lineThrough,
+                ),
+              ),
+
+              const SizedBox(width: 5),
+
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 4,
+                  vertical: 2,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  "-$diskon%",
+                  style: const TextStyle(
+                    color: Colors.red,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 9,
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+        const SizedBox(height: 3),
+
+        Text(
+          hargaFix,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
+          ),
+        ),
+      ],
+    ),
+  ],
+),
                       ],
                     ),
                   ),
@@ -818,262 +884,168 @@ if (hargaAwalFinal > 0 &&
     );
   }
 
-  Widget _buildKontenAturJadwal() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            children: [
-              Expanded(
-                child: GestureDetector(
-                  onTap: () {
-                    _tampilkanPilihanFilter(
-                      judul: 'Pilih Waktu Konseling',
-                      opsiData: _listWaktu,
-                     nilaiSekarang: _filterWaktu,
-
-                      padaSaatDipilih: (hasil) {
-
-                        setState(() {
-
-                          _filterWaktu = hasil;
-
-                        });
-
-                        print(
-                          "FILTER = $_filterWaktu",
-                        );
-                      },
-                    );
-                  },
-                  child: _buildFilterDropdown(
-                      Icons.access_time,
-                      'Waktu:',
-                      _filterWaktu,
-                    ),
+Widget _buildKontenAturJadwal() {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Expanded(
+              child: GestureDetector(
+                onTap: () {
+                  _tampilkanPilihanFilter(
+                    judul: "Pilih Waktu Konseling",
+                    opsiData: _listWaktu,
+                    nilaiSekarang: _filterWaktu,
+                    padaSaatDipilih: (hasil) {
+                      setState(() {
+                        _filterWaktu = hasil;
+                      });
+                    },
+                  );
+                },
+                child: _buildFilterDropdown(
+                  Icons.access_time,
+                  "Waktu:",
+                  _filterWaktu,
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: GestureDetector(
-                  onTap: () {
-                    _tampilkanPilihanFilter(
-                      judul: 'Pilih Durasi Konseling',
-                      opsiData: _listDurasi,
-                      nilaiSekarang: _pilihanDurasi,
-                      padaSaatDipilih: (hasil) {
-                        setState(() {
-                          _pilihanDurasi = hasil;
-                        });
-                        
-                        // 3. JIKA DROPDOWN DIUBAH, MAKA PAKSA STATE DI DALAM BOTTOMSHEET IKUT DI-UPDATE
-                        if (_isSheetOpen && _updateHargaBottomSheet != null) {
-                          _updateHargaBottomSheet!(() {});
-                        }
-                      },
-                    );
-                  },
-                  child: _buildFilterDropdown(Icons.hourglass_empty, 'Durasi:', _pilihanDurasi),
+            ),
+
+            const SizedBox(width: 12),
+
+            Expanded(
+              child: GestureDetector(
+                onTap: () {
+                  _tampilkanPilihanFilter(
+                    judul: "Pilih Durasi Konseling",
+                    opsiData: _listDurasi,
+                    nilaiSekarang: _pilihanDurasi,
+                    padaSaatDipilih: (hasil) {
+                      setState(() {
+                        _pilihanDurasi = hasil;
+                      });
+
+                      if (_isSheetOpen &&
+                          _updateHargaBottomSheet != null) {
+                        _updateHargaBottomSheet!(() {});
+                      }
+                    },
+                  );
+                },
+                child: _buildFilterDropdown(
+                  Icons.hourglass_empty,
+                  "Durasi:",
+                  _pilihanDurasi,
                 ),
               ),
-            ],
+            ),
+          ],
+        ),
+      ),
+
+      const Padding(
+        padding: EdgeInsets.all(16),
+        child: Text(
+          "Pilih Tanggal dan Waktu",
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
           ),
         ),
-       const Padding(
-  padding: EdgeInsets.all(16.0),
+      ),
+
+      _loadingJadwal
+          ? const Center(
+              child: Padding(
+                padding: EdgeInsets.all(20),
+                child: CircularProgressIndicator(),
+              ),
+            )
+          : Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                children: (_filterWaktu == "Semua"
+                        ? _jadwalDokter
+                        : _jadwalDokter.where((jadwal) {
+                            return jadwal["sesi"]
+                                    .toString()
+                                    .toLowerCase() ==
+                                _filterWaktu.toLowerCase();
+                          }).toList())
+                    .map((jadwal) {
+
+                  final bool dipilih =
+    jadwal["status"] == "booked";
+
+                  return Card(
+                    elevation: 3,
+                    color: dipilih
+                        ? Colors.green.shade50
+                        : Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius:
+                          BorderRadius.circular(16),
+                      side: BorderSide(
+                        color: dipilih
+                            ? const Color(0xff2d6a4f)
+                            : Colors.grey.shade300,
+                        width: 1.5,
+                      ),
+                    ),
+                    child: ListTile(
+                      leading: const Icon(
+                        Icons.access_time,
+                        color: Color(0xff2d6a4f),
+                      ),
+
+                      title: Text(
+                        jadwal["tanggal"].toString(),
+                      ),
+
+                      subtitle: Text(
+                        "${jadwal["jam"]} (${jadwal["sesi"]})",
+                      ),
+
+trailing: ElevatedButton(
+  onPressed: () async {
+
+    final String statusBaru =
+        dipilih ? "tersedia" : "booked";
+
+    await updateStatusJadwal(
+      jadwal["id"],
+      statusBaru,
+    );
+
+    await fetchJadwal();
+
+    if (_isSheetOpen &&
+        _updateHargaBottomSheet != null) {
+      _updateHargaBottomSheet!(() {});
+    }
+  },
+
+  style: ElevatedButton.styleFrom(
+    backgroundColor: dipilih
+        ? Colors.red
+        : const Color(0xff2d6a4f),
+  ),
+
   child: Text(
-    'Pilih Tanggal dan Waktu',
-    style: TextStyle(
-      fontSize: 14,
-      fontWeight: FontWeight.bold,
+    dipilih ? "Batal" : "Pilih",
+    style: const TextStyle(
+      color: Colors.white,
     ),
   ),
 ),
-
-_loadingJadwal
-    ? const Center(
-        child: Padding(
-          padding: EdgeInsets.all(20),
-          child: CircularProgressIndicator(),
-        ),
-      )
-    : Container(
-        margin: const EdgeInsets.symmetric(
-          horizontal: 16,
-        ),
-        child: Column(
-          children: (_filterWaktu == "Semua"
-                  ? _jadwalDokter
-                  : _jadwalDokter.where((jadwal) {
-
-                      return jadwal['sesi']
-                              .toString()
-                              .toLowerCase() ==
-                          _filterWaktu
-                              .toLowerCase();
-
-                    }).toList())
-             .map((jadwal) {
-
-  print(
-    "TAMPIL = ${jadwal['jam']} | ${jadwal['sesi']}"
-  );
-
-           return Card(
-  elevation: 3,
-  color: _pilihanWaktu ==
-          jadwal['jam'].toString()
-      ? Colors.green.shade50
-      : Colors.white,
-  shape: RoundedRectangleBorder(
-    borderRadius:
-        BorderRadius.circular(16),
-    side: BorderSide(
-      color: _pilihanWaktu ==
-              jadwal['jam']
-                  .toString()
-          ? const Color(0xff2d6a4f)
-          : Colors.grey.shade300,
-      width: 1.5,
-    ),
-  ),
-  child: ListTile(
-    contentPadding:
-        const EdgeInsets.symmetric(
-      horizontal: 16,
-      vertical: 10,
-    ),
-    leading: Container(
-      width: 48,
-      height: 48,
-      decoration: BoxDecoration(
-        color: const Color(0xff2d6a4f)
-            .withOpacity(0.1),
-        shape: BoxShape.circle,
-      ),
-      child: const Icon(
-        Icons.access_time,
-        color: Color(0xff2d6a4f),
-      ),
-    ),
-    title: Text(
-      jadwal['tanggal'].toString(),
-      style: const TextStyle(
-        fontWeight: FontWeight.bold,
-        fontSize: 16,
-      ),
-    ),
-    subtitle: Padding(
-      padding: const EdgeInsets.only(
-        top: 6,
-      ),
-      child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
-        children: [
-          Text(
-            "Jam : ${jadwal['jam']}",
-          ),
-          const SizedBox(height: 4),
-          Container(
-            padding:
-                const EdgeInsets.symmetric(
-              horizontal: 10,
-              vertical: 4,
-            ),
-            decoration: BoxDecoration(
-              color: Colors.green
-                  .withOpacity(0.1),
-              borderRadius:
-                  BorderRadius.circular(
-                20,
+                    ),
+                  );
+                }).toList(),
               ),
             ),
-            child: Text(
-              jadwal['sesi']
-                  .toString(),
-              style: const TextStyle(
-                color: Color(0xff2d6a4f),
-                fontWeight:
-                    FontWeight.bold,
-              ),
-            ),
-          ),
-        ],
-      ),
-    ),
-    trailing: _pilihanWaktu ==
-            jadwal['jam']
-                .toString()
-        ? Container(
-            padding:
-                const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 8,
-            ),
-            decoration:
-                BoxDecoration(
-              color: const Color(
-                  0xff2d6a4f),
-              borderRadius:
-                  BorderRadius.circular(
-                20,
-              ),
-            ),
-            child: const Row(
-              mainAxisSize:
-                  MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.check,
-                  color: Colors.white,
-                  size: 16,
-                ),
-                SizedBox(width: 4),
-                Text(
-                  "Dipilih",
-                  style: TextStyle(
-                    color:
-                        Colors.white,
-                  ),
-                ),
-              ],
-            ),
-          )
-        : ElevatedButton(
-            onPressed: () {
-              setState(() {
-                _pilihanWaktu =
-                    jadwal['jam']
-                        .toString();
-              });
-
-              print(
-                "JAM DIPILIH = $_pilihanWaktu",
-              );
-            },
-            style: ElevatedButton
-                .styleFrom(
-              backgroundColor:
-                  const Color(
-                0xff2d6a4f,
-              ),
-            ),
-            child: const Text(
-              "Pilih",
-              style: TextStyle(
-                color:
-                    Colors.white,
-              ),
-            ),
-          ),
-  ),
-);
-          }).toList(),
-        ),
-      ),
     ],
   );
 }

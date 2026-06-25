@@ -363,15 +363,18 @@ if (dokter['tags'] != null &&
                                 ),
                                onPressed: () {
 
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => KelolaJadwalPage(
-                                    dokterId: dokter['id'],
-                                    namaDokter: dokter['nama'],
-                                  ),
-                                ),
-                              );
+                              // Sesuaikan 'item' atau 'dokter' dengan nama variabel di ListView/Card daftar doktermu
+final dokter = listDokter[index]; 
+
+Navigator.push(
+  context,
+  MaterialPageRoute(
+    builder: (context) => KelolaJadwalPage(
+      dokterId: int.parse(dokter['id'].toString()), // <--- Ambil ID asli dari database (misal: 15)
+      namaDokter: dokter['nama'] ?? 'Dokter',
+    ),
+  ),
+);
 
                             },
                               ),

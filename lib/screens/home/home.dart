@@ -23,6 +23,15 @@ class _HomePageState extends State<HomePage> {
   bool _isPressedOnline = false;
 
   @override
+  void initState() {
+    super.initState();
+    // Memastikan data dokter selalu ditarik versi terbaru saat halaman dibuka
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<DokterProvider>(context, listen: false).fetchDokter();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     // 1. Ambil status admin dari AuthProvider
     final isAdmin = Provider.of<AuthProvider>(context).isAdmin;
@@ -100,7 +109,7 @@ class _HomePageState extends State<HomePage> {
                   Expanded(
                     child: _buildMenuUtamaCard(
                       imagePath: 'lib/assets/online.png',
-                      title: "Online\nkonseling",
+                      title: "Cek Kondisi\nAwal",
                       isPressed: _isPressedOnline,
                       onTapDown: () {
                         setState(() {
@@ -140,9 +149,14 @@ class _HomePageState extends State<HomePage> {
               ),
               const SizedBox(height: 15),
 
-              // ================= HORIZONTAL SLIDER DOKTER =================
+              // ================= HORIZONTAL SLIDER DOKTER (FILTERED) =================
               Consumer<DokterProvider>(
                 builder: (context, dokterProv, child) {
+                  // Memisahkan data yang berstatus 'is_andalan == 1'
+                  final paraDokterAndalan = dokterProv.listDokter
+                      .where((dokter) => dokter['is_andalan'] == 1 || dokter['is_andalan'] == '1')
+                      .toList();
+
                   if (dokterProv.listDokter.isEmpty) {
                     dokterProv.fetchDokter();
                     return const SizedBox(
@@ -151,17 +165,26 @@ class _HomePageState extends State<HomePage> {
                     );
                   }
 
-                  final paraDokter = dokterProv.listDokter;
+                  // Jika setelah difilter ternyata tidak ada psikolog andalan sama sekali
+                  if (paraDokterAndalan.isEmpty) {
+                    return const SizedBox(
+                      height: 240,
+                      child: Center(
+                        child: Text(
+                          "Belum ada psikolog andalan saat ini.",
+                          style: TextStyle(color: Colors.grey, fontSize: 13),
+                        ),
+                      ),
+                    );
+                  }
 
                   return SizedBox(
                     height: 240,
                     child: ListView.builder(
                       scrollDirection: Axis.horizontal,
-                      itemCount: paraDokter.length,
+                      itemCount: paraDokterAndalan.length,
                       itemBuilder: (context, index) {
-                        final dokter = paraDokter[index];
-                        List<String> tags = List<String>.from(dokter['tags'] ?? []);
-
+                        final dokter = paraDokterAndalan[index];
                         return _buildDokterCard(
                               context,
                               dokter: dokter,
@@ -237,9 +260,7 @@ class _HomePageState extends State<HomePage> {
 
       Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (_) => Informasi(),
-        ),
+              MaterialPageRoute(builder: (_) => Informasi()),
       );
 
     } else if (index == 2) {
@@ -247,19 +268,14 @@ class _HomePageState extends State<HomePage> {
       // NAVIGASI KE HISTORY BOOKING
       Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (_) => const HistoryBookingPage(),
-        ),
+              MaterialPageRoute(builder: (_) => const HistoryBookingPage()),
       );
 
     } else if (index == 3) {
 
       Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (_) =>
-              const ProfileScreen(),
-        ),
+              MaterialPageRoute(builder: (_) => const ProfileScreen()),
       );
     }
   },
@@ -374,29 +390,13 @@ Widget _buildDokterCard(
   required Map<String, dynamic> dokter,
 }) {
   final int id = dokter['id'] ?? 0;
-
-  final String imagePath =
-      dokter['image_url'] ?? '';
-
-  final String name =
-      dokter['nama'] ?? '';
-
-  final List<String> tags =
-      List<String>.from(
-        dokter['tags'] ?? [],
-      );
-
-  final String time =
-      dokter['jadwal'] ?? '';
-
-  final int hargaAwal =
-      dokter['harga_awal'] ?? 0;
-
-  final int hargaDiskon =
-      dokter['harga_diskon'] ?? 0;
-
-  final int diskon =
-      dokter['diskon'] ?? 0;
+    final String imagePath = dokter['image_url'] ?? '';
+    final String name = dokter['nama'] ?? '';
+    final List<String> tags = List<String>.from(dokter['tags'] ?? []);
+    final String time = dokter['jadwal'] ?? '';
+    final int hargaAwal = dokter['harga_awal'] ?? 0;
+    final int hargaDiskon = dokter['harga_diskon'] ?? 0;
+    final int diskon = dokter['diskon'] ?? 0;
 
   return MouseRegion(
     cursor: SystemMouseCursors.click,
@@ -451,26 +451,21 @@ Widget _buildDokterCard(
             child: Column(
               children: [
                 ClipRRect(
-                  borderRadius:
-                      BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(12),
                   child: imagePath.startsWith('http')
                       ? Image.network(
                           imagePath,
                           height: 90,
                           width: 90,
                           fit: BoxFit.cover,
-                          errorBuilder:
-                              (context, error, stackTrace) =>
-                                  _buildAvatarError(),
+                            errorBuilder: (context, error, stackTrace) => _buildAvatarError(),
                         )
                       : Image.asset(
                           imagePath,
                           height: 90,
                           width: 90,
                           fit: BoxFit.cover,
-                          errorBuilder:
-                              (context, error, stackTrace) =>
-                                  _buildAvatarError(),
+                            errorBuilder: (context, error, stackTrace) => _buildAvatarError(),
                         ),
                 ),
                 const SizedBox(height: 10),
@@ -490,15 +485,10 @@ Widget _buildDokterCard(
                   alignment: WrapAlignment.center,
                   children: tags.map((tag) {
                     return Container(
-                      padding:
-                          const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 3,
-                      ),
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                       decoration: BoxDecoration(
                         color: const Color(0xFFE8F5E9),
-                        borderRadius:
-                            BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
                         tag,
@@ -521,15 +511,10 @@ Widget _buildDokterCard(
                 ),
                 const SizedBox(height: 4),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
                     color: const Color(0xFF2E6A3F),
-                    borderRadius:
-                        BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
                     time,
