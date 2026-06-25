@@ -1177,7 +1177,7 @@ Widget _buildKontenUlasanPsikolog() {
         Text(
           ulasan.komentar,
           style: TextStyle(
-            color: Colors.grey.shade800,
+            color: Colors.grey.shade800, 
             fontSize: 14,
             height: 1.6,
           ),

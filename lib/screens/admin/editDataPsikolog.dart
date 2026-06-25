@@ -100,6 +100,7 @@ class _EditPsikologPageState extends State<EditPsikologPage> {
           'Edit Data Psikolog', 
           style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 18),
         ), 
+        
         backgroundColor: Colors.white, 
         centerTitle: true, 
         elevation: 0,
