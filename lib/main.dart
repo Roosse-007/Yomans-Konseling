@@ -6,6 +6,7 @@ import 'package:yomans_konseling/providers/favorit_provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/dokter_provider.dart';
 import 'providers/user_provider.dart';
+import 'providers/pembayaran_provider.dart';
 
 import 'screens/auth/login.dart';
 import 'screens/auth/splash_screen.dart'; // Pastikan path impor splash screen ini benar
@@ -34,6 +35,11 @@ class MyApp extends StatelessWidget {
   ChangeNotifierProvider(
     create: (_) => UserProvider(),
   ),
+
+  ChangeNotifierProvider(
+    create: (_) => PembayaranProvider(),
+  ),
+
 
   ChangeNotifierProvider(
     create: (_) => UlasanProvider(),

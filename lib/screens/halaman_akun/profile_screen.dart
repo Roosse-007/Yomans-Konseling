@@ -168,7 +168,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ? MemoryImage(_webImageBytes!)
                               : (fotoUser.startsWith('http')
                                   ? NetworkImage("$fotoUser?cache=${DateTime.now().millisecondsSinceEpoch}")
-                                  : const AssetImage('assets/images/default_avatar.png') as ImageProvider),
+                                  : const AssetImage('lib/assets/default.png') as ImageProvider),
                         ),
                       ),
                       Positioned(

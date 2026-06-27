@@ -106,6 +106,48 @@ print(dokter);
     }
   }
 
+  Future<void> fetchDokterAndalan() async {
+  final String url = '$_baseUrl/user/dokter-andalan';
+
+  try {
+    final response = await http.get(Uri.parse(url));
+
+    if (response.statusCode == 200) {
+      final result = jsonDecode(response.body);
+
+      List<dynamic> rawData = result["data"] ?? [];
+
+      _listDokter = rawData.map((dokterRaw) {
+        Map<String, dynamic> dokter = Map<String, dynamic>.from(dokterRaw);
+
+        String imgUrl = dokter['image_url'] ?? '';
+        dokter['is_local_asset'] = !imgUrl.startsWith('http');
+        dokter['image_url'] = imgUrl;
+
+        List<String> parsedTags = [];
+
+        if (dokter['tags'] != null) {
+          parsedTags = dokter['tags']
+              .toString()
+              .replaceAll('[', '')
+              .replaceAll(']', '')
+              .split(',')
+              .map((e) => e.trim())
+              .toList();
+        }
+
+        dokter['tags'] = parsedTags;
+
+        return dokter;
+      }).toList();
+
+      notifyListeners();
+    }
+  } catch (e) {
+    print(e);
+  }
+}
+
   // ================= TAMBAH DOKTER (KHUSUS WEB) =================
   Future<bool> tambahDokter(Map<String, dynamic> dokterBaru) async {
     final String url = '$_baseUrl/admin/dokter';
@@ -185,8 +227,7 @@ request.fields['harga_diskon'] =
     required int userId,
     required int dokterId,
     required String tanggal,
-    required String keluhan,
-    required int duration,
+    required String duration,
   }) async {
     final String url = '$_baseUrl/booking';
     try {
@@ -197,7 +238,6 @@ request.fields['harga_diskon'] =
           "user_id": userId,
           "dokter_id": dokterId,
           "tanggal": tanggal,
-          "keluhan": keluhan,
           "duration": duration,
         }),
       );

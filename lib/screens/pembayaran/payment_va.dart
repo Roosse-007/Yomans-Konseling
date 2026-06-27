@@ -3,8 +3,13 @@ import 'package:flutter/services.dart';
 
 class PaymentPage extends StatelessWidget {
   final String metode;
+  final int jadwalId;
 
-  const PaymentPage({Key? key, required this.metode,}) : super(key: key);
+  const PaymentPage({
+    Key? key,
+    required this.metode,
+    required this.jadwalId,
+  }) : super(key: key);
 
   // Fungsi untuk mendapatkan path logo berdasarkan ID metode
   // Update fungsi ini di dalam class PaymentPage agar bisa membaca semua jenis file

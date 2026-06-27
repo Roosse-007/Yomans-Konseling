@@ -1,38 +1,33 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:yomans_konseling/screens/pembayaran/payment_va.dart';
+import 'package:http/http.dart' as http;
+import 'package:flutter/services.dart';
+import 'package:yomans_konseling/screens/pembayaran/payment_detail.dart';
 
-void main() {
-  runApp(const MyApp());
-}
+// ==========================================
+// 1. HALAMAN PILIH METODE PEMBAYARAN
+// ==========================================
+class PaymentPage extends StatefulWidget {
+  final int bookingId;
+  final int jadwalId;
 
-class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        scaffoldBackgroundColor: Colors.white,
-      ),
-      home: const PaymentMethodPage(),
-    );
-  }
-}
-
-class PaymentMethodPage extends StatefulWidget {
-  const PaymentMethodPage({Key? key}) : super(key: key);
+  const PaymentPage({
+    super.key,
+    required this.bookingId,
+    required this.jadwalId,
+  });
 
   @override
-  State<PaymentMethodPage> createState() => _PaymentMethodPageState();
+  State<PaymentPage> createState() => _PaymentPageState();
 }
 
-class _PaymentMethodPageState extends State<PaymentMethodPage> {
+class _PaymentPageState extends State<PaymentPage> {
   String? _selectedMethod;
-  final Color primaryGreen = const Color(0xFF2E6B33);
+
 
   @override
   Widget build(BuildContext context) {
+
     return Scaffold(
       appBar: AppBar(
         centerTitle: true,
@@ -45,6 +40,7 @@ class _PaymentMethodPageState extends State<PaymentMethodPage> {
       ),
       body: Stack(
         children: [
+          // Background Watermark Logo
           Center(
             child: Opacity(
               opacity: 0.15,
@@ -66,6 +62,8 @@ class _PaymentMethodPageState extends State<PaymentMethodPage> {
               ),
             ),
           ),
+          
+          // List Pilihan Metode Pembayaran
           Column(
             children: [
               Expanded(
@@ -74,81 +72,98 @@ class _PaymentMethodPageState extends State<PaymentMethodPage> {
                   children: [
                     _buildCategoryHeader('Transfer Bank', Icons.account_balance),
                     const SizedBox(height: 8),
-                    _buildPaymentOption(
-                      id: 'bca',
-                      logoPath: 'lib/assets/logo-bca.jpg',
-                      labelText: 'BCA',
-                    ),
+                    _buildPaymentOption(id: 'BCA', logoPath: 'lib/assets/logo-bca.jpg', labelText: 'BCA'),
                     const Divider(height: 1, thickness: 1),
-                    _buildPaymentOption(
-                      id: 'mandiri',
-                      logoPath: 'lib/assets/logo-mandiri.png',
-                      labelText: 'mandiri',
-                    ),
+                    _buildPaymentOption(id: 'Mandiri', logoPath: 'lib/assets/logo-mandiri.png', labelText: 'Mandiri'),
                     const Divider(height: 1, thickness: 1),
-                    _buildPaymentOption(
-                      id: 'bri',
-                      logoPath: 'lib/assets/logo-bri.jpg',
-                      labelText: 'BRI',
-                    ),
+                    _buildPaymentOption(id: 'BRI', logoPath: 'lib/assets/logo-bri.jpg', labelText: 'BRI'),
                     const Divider(height: 1, thickness: 1),
                     const SizedBox(height: 32),
                     _buildCategoryHeader('Dompet Digital', Icons.account_balance_wallet),
                     const SizedBox(height: 8),
-                    _buildPaymentOption(
-                      id: 'ovo',
-                      logoPath: 'lib/assets/logo-ovo.jpg',
-                      labelText: 'OVO',
-                    ),
+                    _buildPaymentOption(id: 'OVO', logoPath: 'lib/assets/logo-ovo.jpg', labelText: 'OVO'),
                     const Divider(height: 1, thickness: 1),
-                    _buildPaymentOption(
-                      id: 'gopay',
-                      logoPath: 'lib/assets/logo-gopay.png',
-                      labelText: 'gopay',
-                    ),
+                    _buildPaymentOption(id: 'GoPay', logoPath: 'lib/assets/logo-gopay.png', labelText: 'GoPay'),
                     const Divider(height: 1, thickness: 1),
-                    _buildPaymentOption(
-                      id: 'dana',
-                      logoPath: 'lib/assets/logo-dana.png',
-                      labelText: 'DANA',
-                    ),
+                    _buildPaymentOption(id: 'DANA', logoPath: 'lib/assets/logo-dana.png', labelText: 'DANA'),
                     const Divider(height: 1, thickness: 1),
                   ],
                 ),
               ),
+              
+              // Tombol Utama "Lanjutkan"
               Padding(
-  padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
-  child: SizedBox(
-    width: double.infinity,
-    height: 48,
-    child: ElevatedButton(
-      // Logika tombol: null jika belum ada metode yang dipilih, 
-      // melakukan navigasi jika sudah ada metode yang dipilih.
-      onPressed: _selectedMethod == null
-          ? null
-          : () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => PaymentPage(metode: _selectedMethod!),
+                padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2E6B33),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      elevation: 0,
+                    ),
+                    onPressed: _selectedMethod == null
+                        ? null
+      : () async {
+          try {
+            final response = await http.post(
+              Uri.parse("http://127.0.0.1:5000/api/create_payment"),
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: jsonEncode({
+                "booking_id": widget.bookingId,
+                "metode": _selectedMethod!.toLowerCase(),
+              }),
+            );
+
+            final result = jsonDecode(response.body);
+
+            if (!mounted) return;
+
+            if (result["status"] == "success") {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                  builder: (_) => PaymentDetailPage(
+                  bookingId: widget.bookingId,
+                  jadwalId: widget.jadwalId,
+                )
+                              ),
+                            );
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(result["message"]),
+                  backgroundColor: Colors.red,
                 ),
               );
-            },
-      style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF2E6B33),
-        foregroundColor: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-        ),
-        elevation: 0,
-      ),
-      child: const Text(
-        'Bayar',
-        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-      ),
+            }
+          } catch (e) {
+            if (!mounted) return;
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text("Terjadi kesalahan: $e"),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+                          },
+                    child: const Text(
+    "Lanjutkan Pembayaran",
+    style: TextStyle(
+      fontSize: 16,
+      fontWeight: FontWeight.bold,
     ),
-  ),
-),
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         ],
@@ -158,75 +173,44 @@ class _PaymentMethodPageState extends State<PaymentMethodPage> {
 
   Widget _buildCategoryHeader(String title, IconData icon) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: primaryGreen,
-            ),
-          ),
-          const SizedBox(width: 6),
-          Icon(icon, color: primaryGreen, size: 20),
+          Icon(icon, color: const Color(0xFF2E6B33)),
+          const SizedBox(width: 8),
+          Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         ],
       ),
     );
   }
 
-  Widget _buildPaymentOption({
-    required String id,
-    required String logoPath,
-    required String labelText,
-  }) {
-    return InkWell(
-      onTap: () {
+  Widget _buildPaymentOption({required String id, required String logoPath, required String labelText}) {
+    return RadioListTile<String>(
+      activeColor: const Color(0xFF2E6B33),
+      value: id,
+      groupValue: _selectedMethod,
+      onChanged: (value) {
         setState(() {
-          _selectedMethod = id;
+          _selectedMethod = value;
         });
       },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Container(
-              height: 32,
-              width: 100,
-              alignment: Alignment.centerLeft,
-              child: Image.asset(
-                logoPath,
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) {
-                  return Text(
-                    labelText,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  );
-                },
-              ),
-            ),
-            Theme(
-              data: ThemeData(unselectedWidgetColor: Colors.black54),
-              child: Radio<String>(
-                value: id,
-                groupValue: _selectedMethod,
-                activeColor: primaryGreen,
-                onChanged: (String? value) {
-                  setState(() {
-                    _selectedMethod = value;
-                  });
-                },
-              ),
-            ),
-          ],
-        ),
+      title: Row(
+        children: [
+          Image.asset(
+            logoPath,
+            width: 40,
+            height: 40,
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) => const Icon(Icons.payment, size: 30, color: Colors.grey),
+          ),
+          const SizedBox(width: 16),
+          Text(labelText, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+        ],
       ),
     );
   }
 }
+
+// ==========================================
+// 2. HALAMAN DETAIL INSTRUKSI & KONFIRMASI (PRO)
+// ==========================================

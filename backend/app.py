@@ -25,6 +25,8 @@ CORS(app)
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+BUKTI_FOLDER = os.path.join(UPLOAD_FOLDER, "bukti_transfer")
+os.makedirs(BUKTI_FOLDER, exist_ok=True)
 
 # Membuat folder 'uploads' secara otomatis jika belum ada di laptop
 if not os.path.exists(UPLOAD_FOLDER):
@@ -32,6 +34,33 @@ if not os.path.exists(UPLOAD_FOLDER):
 
 # Membuat folder uploads otomatis jika belum ada
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+BANK_ACCOUNT = {
+    "bca": {
+        "rekening": "1234567890",
+        "nama": "Yomans Konseling"
+    },
+    "mandiri": {
+        "rekening": "9876543210",
+        "nama": "Yomans Konseling"
+    },
+    "bri": {
+        "rekening": "11122233344",
+        "nama": "Yomans Konseling"
+    },
+    "ovo": {
+        "rekening": "081234567890",
+        "nama": "Yomans Konseling"
+    },
+    "gopay": {
+        "rekening": "081111111111",
+        "nama": "Yomans Konseling"
+    },
+    "dana": {
+        "rekening": "082222222222",
+        "nama": "Yomans Konseling"
+    }
+}
 
 # Pastikan Flask mengizinkan akses statis ke folder uploads agar foto bisa dipanggil lewat URL
 @app.route('/uploads/<filename>')
@@ -847,9 +876,7 @@ def dokter():
 # ================= BOOKING =================
 @app.route("/api/booking", methods=["POST"])
 def booking():
-
     try:
-
         data = request.get_json(silent=True)
 
         if not data:
@@ -858,12 +885,14 @@ def booking():
                 "message": "Data tidak ditemukan"
             }), 400
 
+        # ================= AMBIL DATA =================
         user_id = data.get("user_id")
         dokter_id = data.get("dokter_id")
         tanggal = data.get("tanggal")
-        keluhan = data.get("keluhan")
+        duration = data.get("duration")
 
-        if not all([user_id, dokter_id, tanggal, keluhan]):
+        # ================= VALIDASI =================
+        if not user_id or not dokter_id or not tanggal or not duration:
             return jsonify({
                 "status": "error",
                 "message": "Data booking tidak lengkap"
@@ -872,21 +901,19 @@ def booking():
         db = get_db()
         cur = db.cursor(dictionary=True)
 
-        # ================= AMBIL DATA DOKTER =================
-
+        # ================= CEK DOKTER =================
         cur.execute("""
             SELECT
                 id,
                 harga_awal,
                 harga_diskon
             FROM dokter
-            WHERE id=%s
+            WHERE id = %s
         """, (dokter_id,))
 
         dokter = cur.fetchone()
 
         if not dokter:
-
             cur.close()
             db.close()
 
@@ -896,21 +923,21 @@ def booking():
             }), 404
 
         # ================= HITUNG HARGA =================
+        harga_awal = float(dokter["harga_awal"] or 0)
+        harga_diskon = float(dokter["harga_diskon"] or 0)
 
-        if dokter["harga_diskon"] is not None and float(dokter["harga_diskon"]) > 0:
-            total_pembayaran = dokter["harga_diskon"]
+        if harga_diskon > 0:
+            total_pembayaran = harga_diskon
         else:
-            total_pembayaran = dokter["harga_awal"]
+            total_pembayaran = harga_awal
 
         # ================= SIMPAN BOOKING =================
-
         cur.execute("""
             INSERT INTO booking
             (
                 user_id,
                 dokter_id,
                 tanggal,
-                keluhan,
                 total_price,
                 status,
                 reviewed
@@ -922,17 +949,15 @@ def booking():
                 %s,
                 %s,
                 %s,
-                'Menunggu Pembayaran',
-                0
+                %s
             )
         """, (
-
             user_id,
             dokter_id,
             tanggal,
-            keluhan,
             total_pembayaran,
-
+            "Menunggu Pembayaran",
+            0
         ))
 
         db.commit()
@@ -943,27 +968,18 @@ def booking():
         db.close()
 
         return jsonify({
-
             "status": "success",
-
             "booking_id": booking_id,
-
-            "total_harga": float(total_pembayaran),
-
+            "total_harga": total_pembayaran,
             "message": "Booking berhasil"
-
         }), 200
 
     except Exception as e:
-
         print("BOOKING ERROR :", e)
 
         return jsonify({
-
             "status": "error",
-
             "message": str(e)
-
         }), 500
 # ================= TAMBAHAN FITUR PEMBAYARAN VA =================
 
@@ -1957,7 +1973,21 @@ def get_dokter_andalan():
         cur = db.cursor(dictionary=True)
         
         # Mengambil data psikolog yang diberi bintang (is_andalan = 1)
-        cur.execute("SELECT id, nama, tags, image_url, harga_diskon FROM dokter WHERE is_andalan = 1 ORDER BY id DESC")
+        cur.execute("""
+        SELECT
+            id,
+            nama,
+            tags,
+            image_url,
+            harga_awal,
+            harga_diskon,
+            jadwal,
+            durasi,
+            is_andalan
+        FROM dokter
+        WHERE is_andalan = 1
+        ORDER BY id DESC
+        """)
         data_andalan = cur.fetchall()
         
         cur.close()
@@ -2833,6 +2863,300 @@ def dashboard():
             "status": "error",
             "message": str(e)
         }), 500
+    
+    # ==========================================
+# MEMBUAT DATA PEMBAYARAN
+# ==========================================
+@app.route('/api/create_payment', methods=['POST'])
+def create_payment():
+    try:
+        data = request.get_json()
+
+        booking_id = data.get("booking_id")
+        metode = data.get("metode")
+
+        if not booking_id or not metode:
+            return jsonify({
+                "status": "error",
+                "message": "booking_id dan metode wajib diisi"
+            }), 400
+
+        metode = metode.lower()
+
+        if metode not in BANK_ACCOUNT:
+            return jsonify({
+                "status": "error",
+                "message": "Metode pembayaran tidak tersedia"
+            }), 400
+
+        conn = get_db()
+        cursor = conn.cursor(dictionary=True)
+
+        # Ambil data booking
+        cursor.execute("""
+            SELECT total_price
+            FROM booking
+            WHERE id=%s
+        """, (booking_id,))
+
+        booking = cursor.fetchone()
+
+        if booking is None:
+            cursor.close()
+            conn.close()
+
+            return jsonify({
+                "status": "error",
+                "message": "Booking tidak ditemukan"
+            }), 404
+
+        # Cek apakah pembayaran sudah pernah dibuat
+        cursor.execute("""
+            SELECT id
+            FROM pembayaran
+            WHERE booking_id=%s
+        """, (booking_id,))
+
+        payment = cursor.fetchone()
+
+        if payment:
+            cursor.close()
+            conn.close()
+
+            return jsonify({
+                "status": "error",
+                "message": "Pembayaran sudah dibuat"
+            }), 400
+
+        rekening = BANK_ACCOUNT[metode]["rekening"]
+        nama = BANK_ACCOUNT[metode]["nama"]
+        nominal = booking["total_price"]
+
+        cursor.execute("""
+            INSERT INTO pembayaran
+            (
+                booking_id,
+                metode,
+                nomor_rekening,
+                nama_pemilik,
+                nominal,
+                status
+            )
+            VALUES
+            (
+                %s,
+                %s,
+                %s,
+                %s,
+                %s,
+                'pending'
+            )
+        """, (
+            booking_id,
+            metode,
+            rekening,
+            nama,
+            nominal
+        ))
+
+        conn.commit()
+
+        payment_id = cursor.lastrowid
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            "status": "success",
+            "payment_id": payment_id,
+            "booking_id": booking_id,
+            "metode": metode,
+            "nomor_rekening": rekening,
+            "nama_pemilik": nama,
+            "nominal": nominal
+        })
+
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+    
+    # ==========================================
+# MENGAMBIL DETAIL PEMBAYARAN
+# ==========================================
+@app.route('/api/payment/<int:booking_id>', methods=['GET'])
+def get_payment(booking_id):
+    try:
+        conn = get_db()
+        cursor = conn.cursor(dictionary=True)
+
+        cursor.execute("""
+            SELECT
+                id,
+                booking_id,
+                metode,
+                nomor_rekening,
+                nama_pemilik,
+                nominal,
+                bukti_transfer,
+                status,
+                created_at
+            FROM pembayaran
+            WHERE booking_id=%s
+        """, (booking_id,))
+
+        payment = cursor.fetchone()
+
+        cursor.close()
+        conn.close()
+
+        if payment is None:
+            return jsonify({
+                "status": "error",
+                "message": "Data pembayaran tidak ditemukan"
+            }),404
+
+        return jsonify({
+            "status":"success",
+            "data":payment
+        })
+
+    except Exception as e:
+        return jsonify({
+            "status":"error",
+            "message":str(e)
+        }),500
         
+        # ==================================================
+# UPLOAD BUKTI TRANSFER
+# ==================================================
+@app.route("/api/upload_bukti", methods=["POST"])
+def upload_bukti():
+
+    try:
+
+        booking_id = request.form.get("booking_id")
+
+        if not booking_id:
+            return jsonify({
+                "status":"error",
+                "message":"Booking ID kosong"
+            }),400
+
+        if "bukti" not in request.files:
+            return jsonify({
+                "status":"error",
+                "message":"File bukti tidak ditemukan"
+            }),400
+
+        file = request.files["bukti"]
+
+        if file.filename == "":
+            return jsonify({
+                "status":"error",
+                "message":"File belum dipilih"
+            }),400
+
+        ext = file.filename.rsplit(".",1)[1].lower()
+
+        filename = f"bukti_{booking_id}.{ext}"
+
+        filepath = os.path.join(BUKTI_FOLDER, filename)
+
+        file.save(filepath)
+
+        conn = get_db()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            UPDATE pembayaran
+            SET
+                bukti_transfer=%s,
+                status='waiting_verification'
+            WHERE booking_id=%s
+        """,(filename,booking_id))
+
+        conn.commit()
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            "status":"success",
+            "message":"Bukti transfer berhasil diupload",
+            "filename":filename
+        })
+
+    except Exception as e:
+
+        return jsonify({
+            "status":"error",
+            "message":str(e)
+        }),500
+
+        # ==================================================
+# ADMIN - DAFTAR PEMBAYARAN
+# ================================================
+
+        # ==================================================
+# ADMIN KONFIRMASI PEMBAYARAN
+# ==================================================
+@app.route("/api/admin/pembayaran", methods=["GET"])
+def admin_pembayaran():
+
+    try:
+
+        conn = get_db()
+        cursor = conn.cursor(dictionary=True)
+
+        cursor.execute("""
+    SELECT
+
+        pembayaran.id,
+        pembayaran.booking_id,
+        pembayaran.metode,
+        pembayaran.nominal,
+        pembayaran.status,
+        pembayaran.bukti_transfer,
+        pembayaran.created_at,
+
+        booking.user_id,
+        booking.dokter_id,
+
+        user.username AS nama_user,
+        dokter.nama AS nama_dokter
+
+    FROM pembayaran
+
+    INNER JOIN booking
+        ON booking.id = pembayaran.booking_id
+
+    INNER JOIN user
+        ON user.id = booking.user_id
+
+    INNER JOIN dokter
+        ON dokter.id = booking.dokter_id
+
+    ORDER BY pembayaran.created_at DESC
+""")
+        data = cursor.fetchall()
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            "status": "success",
+            "data": data
+        })
+
+    except Exception as e:
+
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }),500
+    
+    print(app.url_map)
 if __name__ == "__main__":
     app.run(debug=True, use_reloader=False, host="0.0.0.0", port=5000)

@@ -9,8 +9,8 @@ import 'package:yomans_konseling/utils/currency_helper.dart';
 import 'package:yomans_konseling/providers/ulasan_provider.dart';
 import 'package:yomans_konseling/providers/favorit_provider.dart';
 import 'package:yomans_konseling/providers/auth_provider.dart';
+import 'package:yomans_konseling/providers/dokter_provider.dart';
 
-List<dynamic> _jadwalDokter = [];
 
 class DetailBookingPage extends StatefulWidget {
   final Map<String, dynamic> dataDokter;
@@ -22,14 +22,29 @@ class DetailBookingPage extends StatefulWidget {
 }
 
 class _DetailBookingPageState extends State<DetailBookingPage> {
+
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  
+
   PersistentBottomSheetController? _sheetController;
-  bool _isSheetOpen = false; 
-  bool _isTabProfilAktif = true; 
-   
-  String _pilihanWaktu = 'Semua';
-  String _pilihanDurasi = '1 jam';
+
+ StateSetter? _updateHargaBottomSheet;
+
+  bool _isSheetOpen = false;
+
+  bool _loadingJadwal = false;
+
+  List<dynamic> _jadwalDokter = [];
+
+  int? _selectedJadwalId;
+
+  Map<String, dynamic>? _selectedJadwal;
+
+  BuildContext? _pageContext;
+
+  String _pilihanWaktu = "Semua";
+  String _pilihanDurasi = "1 jam";
+  bool _isTabProfilAktif = false;
+
 
 late UlasanProvider ulasanProvider;
 
@@ -47,6 +62,9 @@ void initState() {
   fetchJadwal();
 }
 Future<void> fetchJadwal() async {
+
+  if (!mounted) return;
+
   setState(() {
     _loadingJadwal = true;
   });
@@ -67,19 +85,27 @@ Future<void> fetchJadwal() async {
 
     final data = jsonDecode(response.body);
 
-    if (response.statusCode == 200) {
-      setState(() {
-        _jadwalDokter = data["data"] ?? [];
-      });
+if (response.statusCode == 200) {
 
-      // Refresh ulasan juga
-      await ulasanProvider.refresh(dokterId);
-    }
+  if (!mounted) return;
+
+  setState(() {
+    _jadwalDokter = data["data"] ?? [];
+  });
+
+  await ulasanProvider.refresh(dokterId);
+
+}
 
     print("DATA JADWAL = $_jadwalDokter");
   } catch (e) {
     print("ERROR FETCH JADWAL = $e");
   }
+
+
+
+
+
 
   if (mounted) {
     setState(() {
@@ -92,6 +118,7 @@ Future<void> updateStatusJadwal(
   int id,
   String status,
 ) async {
+
 
   final response = await http.put(
     Uri.parse(
@@ -113,13 +140,22 @@ Future<void> updateStatusJadwal(
   }
 }
 
-bool _loadingJadwal = false;
+@override
+void dispose() {
+
+  _sheetController = null;
+
+  _updateHargaBottomSheet = null;
+
+  super.dispose();
+
+}
+
+
   final List<String> _listWaktu = ['Semua', 'Pagi', 'Siang', 'Sore', 'Malam'];
   final List<String> _listDurasi = ['30 Menit', '1 jam', '1.5 jam', '2 jam'];
 
   // 1. TAMBAHKAN VARIABEL INI UNTUK REMOTING STATE DARI LUAR
-  StateSetter? _updateHargaBottomSheet;
-
   String _getNamaDepan(String fullName) {
     if (fullName.isEmpty) return '';
     String cleanName = fullName.replaceAll(RegExp(r',.*'), ''); 
@@ -268,7 +304,11 @@ final bool adaDiskon = diskon > 0;
                         IconButton(
                           icon: const Icon(Icons.close, size: 20),
                           onPressed: () {
-                            _sheetController?.close();
+
+                            if (_sheetController != null) {
+                            _sheetController!.close();
+                          }
+
                           },
                         ),
                       ],
@@ -385,7 +425,7 @@ final bool adaDiskon = diskon > 0;
                         ),
                         onPressed: () {
                           showDialog(
-                            context: context,
+                              context: _pageContext!,
                             builder: (context) => AlertDialog(
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                               title: const Text('Konfirmasi Pertemuan', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -395,58 +435,124 @@ final bool adaDiskon = diskon > 0;
                                   onPressed: () => Navigator.pop(context), 
                                   child: const Text('Batal', style: TextStyle(color: Colors.grey))
                                 ),
-                                ElevatedButton(
-                                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xff2d6a4f)),
-                                  onPressed: () async {
-                                    Navigator.pop(context); 
+                                      ElevatedButton(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: const Color(0xff2d6a4f),
+                                        ),
+                                        onPressed: () async {
 
-                                    showDialog(
-                                      context: context,
-                                      barrierDismissible: false,
-                                      builder: (context) => const Center(
-                                        child: CircularProgressIndicator(color: Colors.green),
-                                      ),
-                                    );
+                                          final navigator = Navigator.of(context);
+                                          final messenger = ScaffoldMessenger.of(context);
+
+                                          // Tutup BottomSheet
+                                          _sheetController?.close();
+
+                                          showDialog(
+                                            context: _pageContext!,
+                                            barrierDismissible: false,
+                                            builder: (context) => const Center(
+                                              child: CircularProgressIndicator(
+                                                color: Colors.green,
+                                              ),
+                                            ),
+                                          );
 
                                     try {
-                                      final rawId = widget.dataDokter['id'];
-                                      final int dokterIdAnak = rawId is int 
-                                          ? rawId 
-                                          : (int.tryParse(rawId.toString()) ?? 1);
-
-                                      final dynamic provider = Provider.of<dynamic>(context, listen: false); 
-                                      
-                                      var res = await provider.buatBooking(
-                                        userId: 1, 
-                                        dokterId: dokterIdAnak, 
-                                        tanggal: "2026-05-25 18:00:00", 
-                                        keluhan: "Sering cemas di malam hari", 
-                                        duration: _pilihanDurasi, 
+                                      final provider = Provider.of<DokterProvider>(
+                                        _pageContext!,
+                                        listen: false,
                                       );
 
-                                      Navigator.pop(context); 
+                                      final auth = Provider.of<AuthProvider>(
+                                        _pageContext!,
+                                        listen: false,
+                                      );
 
-                                      if (res != null && res['status'] == 'success') {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) => const PaymentMethodPage(),
+                                      if (_selectedJadwal == null) {
+
+                                        navigator.pop(); // tutup loading
+
+                                        messenger.showSnackBar(
+                                          const SnackBar(
+                                            content: Text("Silakan pilih jadwal terlebih dahulu."),
+                                            backgroundColor: Colors.red,
                                           ),
                                         );
-                                      } else {
+
+                                        return;
+                                      }
+
+                                      final rawId = widget.dataDokter["id"];
+
+                                      final int dokterId =
+                                          rawId is int
+                                              ? rawId
+                                              : int.parse(rawId.toString());
+
+                                      final String jam = _selectedJadwal!["jam"]
+                                          .toString()
+                                          .replaceAll(" WIB", "");
+
+                                      final String tanggalBooking =
+                                          "${_selectedJadwal!["tanggal"]} $jam:00";
+                                                                            
+                                                                            var res = await provider.buatBooking(
+                                        userId: auth.userId,
+                                        dokterId: dokterId,
+                                        tanggal: tanggalBooking,
+                                        duration: _pilihanDurasi,
+                                      );
+
+                                       
+
+                                    navigator.pop();
+// await updateStatusJadwal(
+//   _selectedJadwalId!,
+//   "booked",
+// );
+
+//
+                                          final int jadwalId = _selectedJadwalId!;
+
+                                          if (!mounted) return;
+
+                                          setState(() {
+                                            _selectedJadwalId = null;
+                                            _selectedJadwal = null;
+                                          });
+
+                                          if (res != null && res["status"] == "success") {
+
+                                          final int bookingId = res["booking_id"];
+
+                                          await Navigator.push(
+                                            _pageContext!,
+                                            MaterialPageRoute(
+                                              builder: (_) => PaymentPage(
+                                                bookingId: bookingId,
+                                                jadwalId: jadwalId,
+                                              ),
+                                            ),
+                                          );
+                                        }else {
                                         String pesanError = res != null ? res['message'] : 'Terjadi kesalahan respon';
-                                        ScaffoldMessenger.of(context).showSnackBar(
+                                        messenger.showSnackBar(
                                           SnackBar(content: Text('Gagal booking: $pesanError')),
                                         );
                                       }
-                                    } catch (e) {
-                                      Navigator.pop(context); 
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => const PaymentMethodPage(),
+                                    }catch (e) {
+
+                                      navigator.pop();
+
+                                      if (!mounted) return;
+
+                                      messenger.showSnackBar(
+                                        SnackBar(
+                                          content: Text("Booking gagal: $e"),
+                                          backgroundColor: Colors.red,
                                         ),
                                       );
+
                                     }
                                   },
                                   child: const Text('Ya, Konfirmasi', style: TextStyle(color: Colors.white)),
@@ -471,13 +577,21 @@ final bool adaDiskon = diskon > 0;
       backgroundColor: Colors.transparent,
       elevation: 10,
     );
+_sheetController?.closed.then((_) {
 
-    _sheetController?.closed.then((_) {
-      setState(() {
-        _isSheetOpen = false;
-        _updateHargaBottomSheet = null; // Reset saat ditutup
-      });
-    });
+  if (!mounted) return;
+
+  _sheetController = null;
+
+  setState(() {
+
+    _isSheetOpen = false;
+
+    _updateHargaBottomSheet = null;
+
+  });
+
+});
   }
 
   void _tampilkanPilihanFilter({
@@ -529,6 +643,7 @@ final bool adaDiskon = diskon > 0;
 
   @override
   Widget build(BuildContext context) {
+      _pageContext = context;
     final String imagePath = widget.dataDokter['image'] ?? '';
     final bool isNetworkImage = imagePath.startsWith('http');
     final String namaLengkap = widget.dataDokter['nama'] ?? '';
@@ -1187,8 +1302,27 @@ Widget _buildKontenUlasanPsikolog() {
   );
 }
 Widget _buildKontenAturJadwal() {
+
+  List<dynamic> jadwalFilter = _jadwalDokter;
+
+  if (_pilihanWaktu != "Semua") {
+
+    jadwalFilter = jadwalFilter.where((item) {
+
+      final sesi =
+          item["sesi"].toString().toLowerCase();
+
+      return sesi ==
+          _pilihanWaktu.toLowerCase();
+
+    }).toList();
+
+  }
+
   return Column(
+
     crossAxisAlignment: CrossAxisAlignment.start,
+
     children: [
 
       Padding(
@@ -1202,50 +1336,82 @@ Widget _buildKontenAturJadwal() {
             Expanded(
               child: GestureDetector(
                 onTap: () {
+
                   _tampilkanPilihanFilter(
-                    judul: 'Pilih Waktu Konseling',
+
+                    judul: "Pilih Waktu",
+
                     opsiData: _listWaktu,
+
                     nilaiSekarang: _pilihanWaktu,
-                    padaSaatDipilih: (hasil) {
+
+                    padaSaatDipilih: (hasil){
+
                       setState(() {
+
                         _pilihanWaktu = hasil;
+
                       });
+
                     },
+
                   );
+
                 },
                 child: _buildFilterDropdown(
+
                   Icons.access_time,
-                  'Waktu:',
+
+                  "Waktu:",
+
                   _pilihanWaktu,
+
                 ),
               ),
             ),
 
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
 
             Expanded(
               child: GestureDetector(
                 onTap: () {
+
                   _tampilkanPilihanFilter(
-                    judul: 'Pilih Durasi Konseling',
+
+                    judul: "Pilih Durasi",
+
                     opsiData: _listDurasi,
+
                     nilaiSekarang: _pilihanDurasi,
-                    padaSaatDipilih: (hasil) {
+
+                    padaSaatDipilih: (hasil){
+
                       setState(() {
+
                         _pilihanDurasi = hasil;
+
                       });
 
                       if (_isSheetOpen &&
                           _updateHargaBottomSheet != null) {
+
                         _updateHargaBottomSheet!(() {});
+
                       }
+
                     },
+
                   );
+
                 },
                 child: _buildFilterDropdown(
-                  Icons.hourglass_empty,
-                  'Durasi:',
+
+                  Icons.hourglass_bottom,
+
+                  "Durasi:",
+
                   _pilihanDurasi,
+
                 ),
               ),
             ),
@@ -1255,36 +1421,236 @@ Widget _buildKontenAturJadwal() {
       ),
 
       const Padding(
-        padding: EdgeInsets.all(16),
+        padding: EdgeInsets.symmetric(horizontal: 16),
         child: Text(
-          'Pilih Tanggal dan Waktu',
+          "Pilih Jadwal Konseling",
           style: TextStyle(
-            fontSize: 14,
             fontWeight: FontWeight.bold,
+            fontSize: 15,
           ),
         ),
       ),
 
-      Container(
-        height: 100,
-        margin: const EdgeInsets.symmetric(horizontal: 16),
-        decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.04),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: const Center(
-          child: Text(
-            'Area Input Tanggal Kalender Kelompok',
-            style: TextStyle(
-              color: Colors.grey,
-              fontSize: 12,
-            ),
+      const SizedBox(height: 12),
+
+      if (_loadingJadwal)
+
+        const Padding(
+          padding: EdgeInsets.all(40),
+          child: Center(
+            child: CircularProgressIndicator(),
           ),
+        )
+
+      else if (jadwalFilter.isEmpty)
+
+        const Padding(
+          padding: EdgeInsets.all(30),
+          child: Center(
+            child: Text("Tidak ada jadwal."),
+          ),
+        )
+
+      else
+
+        ListView.builder(
+
+          shrinkWrap: true,
+
+          physics:
+              const NeverScrollableScrollPhysics(),
+
+          itemCount: jadwalFilter.length,
+
+          itemBuilder: (_, index){
+
+            final jadwal = jadwalFilter[index];
+
+            final tersedia =
+                jadwal["status"] == "tersedia";
+
+            final dipilih =
+                _selectedJadwalId ==
+                jadwal["id"];
+
+            return GestureDetector(
+
+              onTap: tersedia
+                  ? (){
+
+                      setState(() {
+
+                        if (dipilih){
+
+                          _selectedJadwalId = null;
+                          _selectedJadwal = null;
+
+                        }else{
+
+                          _selectedJadwalId =
+                              jadwal["id"];
+
+                          _selectedJadwal =
+                              jadwal;
+
+                              print("PILIH JADWAL = $_selectedJadwal");
+                              print("PILIH ID = $_selectedJadwalId");
+
+                        }
+
+                      });
+
+                    }
+                  : null,
+
+              child: Container(
+
+                margin: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 6,
+                ),
+
+                padding: const EdgeInsets.all(16),
+
+                decoration: BoxDecoration(
+
+                  color: dipilih
+                      ? Colors.green.shade50
+                      : Colors.white,
+
+                  borderRadius:
+                      BorderRadius.circular(14),
+
+                  border: Border.all(
+
+                    color: dipilih
+                        ? Colors.green
+                        : Colors.grey.shade300,
+
+                  ),
+
+                ),
+
+                child: Row(
+
+                  children: [
+
+                    const Icon(
+                      Icons.schedule,
+                    ),
+
+                    const SizedBox(width: 12),
+
+                    Expanded(
+
+                      child: Column(
+
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
+
+                        children: [
+
+                          Text(
+
+                            jadwal["tanggal"],
+
+                            style:
+                                const TextStyle(
+                              fontWeight:
+                                  FontWeight.bold,
+                            ),
+
+                          ),
+
+                          const SizedBox(height: 5),
+
+                          Text(
+
+                            jadwal["jam"],
+
+                          ),
+
+                        ],
+
+                      ),
+
+                    ),
+
+                    Container(
+
+                      padding:
+                          const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+
+                      decoration: BoxDecoration(
+
+                        color: tersedia
+                            ? Colors.green.shade100
+                            : Colors.red.shade100,
+
+                        borderRadius:
+                            BorderRadius.circular(20),
+
+                      ),
+
+                      child: Text(
+
+                        tersedia
+                            ? "Tersedia"
+                            : "Booked",
+
+                        style: TextStyle(
+
+                          color: tersedia
+                              ? Colors.green
+                              : Colors.red,
+
+                          fontWeight:
+                              FontWeight.bold,
+
+                        ),
+
+                      ),
+
+                    ),
+
+                    if (dipilih)
+
+                      const Padding(
+
+                        padding:
+                            EdgeInsets.only(left: 8),
+
+                        child: Icon(
+
+                          Icons.check_circle,
+
+                          color: Colors.green,
+
+                        ),
+
+                      ),
+
+                  ],
+
+                ),
+
+              ),
+
+            );
+
+          },
+
         ),
-      ),
+
+      const SizedBox(height: 30),
 
     ],
+
   );
+
 }
 
   Widget _buildFilterDropdown(IconData icon, String label, String value) {

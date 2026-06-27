@@ -23,30 +23,35 @@ class _HomePageState extends State<HomePage> {
   bool _isPressedOffline = false;
   bool _isPressedOnline = false;
 
-  @override
+@override
 void initState() {
   super.initState();
 
-  WidgetsBinding.instance.addPostFrameCallback((_) async {
-
-    // Ambil daftar dokter
-    await Provider.of<DokterProvider>(
-      context,
-      listen: false,
-    ).fetchDokter();
-
-    // Ambil user yang sedang login
-    final auth = Provider.of<AuthProvider>(
-      context,
-      listen: false,
-    );
-
-    // Ambil daftar favorit user
-    await Provider.of<FavoritProvider>(
-      context,
-      listen: false,
-    ).fetchFavorit(auth.userId);
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    _loadData();
   });
+}
+
+Future<void> _loadData() async {
+
+  if (!mounted) return;
+
+  final dokterProvider =
+      context.read<DokterProvider>();
+
+  final authProvider =
+      context.read<AuthProvider>();
+
+  final favoritProvider =
+      context.read<FavoritProvider>();
+
+  await dokterProvider.fetchDokter();
+
+  if (!mounted) return;
+
+  await favoritProvider.fetchFavorit(
+    authProvider.userId,
+  );
 }
 
   @override
