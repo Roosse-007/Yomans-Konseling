@@ -210,7 +210,3 @@ class _PaymentPageState extends State<PaymentPage> {
     );
   }
 }
-
-// ==========================================
-// 2. HALAMAN DETAIL INSTRUKSI & KONFIRMASI (PRO)
-// ==========================================

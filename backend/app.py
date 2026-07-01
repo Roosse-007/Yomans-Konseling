@@ -2147,8 +2147,12 @@ def tambah_jadwal_dokter():
 # ==========================================
 @app.route("/api/dokter/<dokter_id>/jadwal", methods=["GET", "OPTIONS"])
 def get_jadwal_dokter(dokter_id):
+
     if request.method == "OPTIONS":
         return jsonify({"status": "success"}), 200
+
+    # TAMBAHKAN BARIS INI
+    update_status_jadwal_otomatis()
 
     try:
         db = get_db()
@@ -2263,6 +2267,63 @@ def auto_generate_jadwal():
         print("ERROR AUTO GENERATE:", e)
         return jsonify({"status": "error", "message": str(e)}), 500
     
+from datetime import datetime, timedelta
+
+def update_status_jadwal_otomatis():
+
+    db = get_db()
+    cur = db.cursor(dictionary=True)
+
+    cur.execute("""
+        SELECT
+            jd.id,
+            jd.tanggal,
+            jd.jam,
+            b.duration
+        FROM jadwal_dokter jd
+        JOIN booking b
+            ON b.jadwal_id = jd.id
+        JOIN pembayaran p
+            ON p.booking_id = b.id
+        WHERE jd.status='booked'
+          AND p.status='paid'
+    """)
+
+    data = cur.fetchall()
+
+    sekarang = datetime.now()
+
+    for item in data:
+
+        mulai = datetime.strptime(
+            f"{item['tanggal']} {str(item['jam'])[:5]}",
+            "%Y-%m-%d %H:%M"
+        )
+
+        durasi = item["duration"]
+
+        if durasi == "30 Menit":
+            selesai = mulai + timedelta(minutes=30)
+        elif durasi == "1 jam":
+            selesai = mulai + timedelta(hours=1)
+        elif durasi == "1.5 jam":
+            selesai = mulai + timedelta(minutes=90)
+        elif durasi == "2 jam":
+            selesai = mulai + timedelta(hours=2)
+        else:
+            continue
+
+        if sekarang >= selesai:
+            cur.execute("""
+                UPDATE jadwal_dokter
+                SET status='tersedia'
+                WHERE id=%s
+            """, (item["id"],))
+
+    db.commit()
+    cur.close()
+    db.close()
+    
 @app.route("/api/jadwal/<int:id>/status", methods=["PUT", "OPTIONS"])
 def update_status_jadwal(id):
 
@@ -2317,49 +2378,62 @@ def tambah_ulasan():
         rating = data.get("rating")
         komentar = data.get("komentar")
 
-        db = get_db()
-        cur = db.cursor(dictionary=True)
+        conn = get_db()
+        cur = conn.cursor(dictionary=True)
 
-        # cek booking
+        # ==========================
+        # VALIDASI BOOKING
+        # ==========================
         cur.execute("""
-        SELECT *
-        FROM booking
-        WHERE
-        id=%s
-        AND user_id=%s
-        AND dokter_id=%s
-        AND status='Selesai'
-""",(
-    booking_id,
-    user_id,
-    dokter_id
-))
+            SELECT
+                id,
+                reviewed
+            FROM booking
+            WHERE
+                id=%s
+                AND user_id=%s
+                AND dokter_id=%s
+                AND status='Selesai'
+        """, (
+            booking_id,
+            user_id,
+            dokter_id
+        ))
 
         booking = cur.fetchone()
 
         if booking is None:
 
+            cur.close()
+            conn.close()
+
             return jsonify({
-                "status":"error",
-                "message":"Booking tidak ditemukan."
-            }),400
+                "status": "error",
+                "message": "Booking tidak ditemukan atau belum selesai."
+            }), 400
 
-        # cek apakah sudah pernah review
-
+        # ==========================
+        # SUDAH PERNAH REVIEW?
+        # ==========================
         cur.execute("""
             SELECT id
             FROM ulasan
             WHERE booking_id=%s
-        """,(booking_id,))
+        """, (booking_id,))
 
         if cur.fetchone():
 
+            cur.close()
+            conn.close()
+
             return jsonify({
-                "status":"error",
-                "message":"Anda sudah memberikan ulasan."
-            }),400
+                "status": "error",
+                "message": "Anda sudah memberikan ulasan."
+            }), 400
 
-
+        # ==========================
+        # SIMPAN ULASAN
+        # ==========================
         cur.execute("""
             INSERT INTO ulasan
             (
@@ -2369,89 +2443,90 @@ def tambah_ulasan():
                 rating,
                 komentar
             )
-
             VALUES
             (%s,%s,%s,%s,%s)
-        """,(
-
+        """, (
             booking_id,
             user_id,
             dokter_id,
             rating,
             komentar
-
         ))
 
-        db.commit()
+        # ==========================
+        # UPDATE REVIEWED
+        # ==========================
+        cur.execute("""
+            UPDATE booking
+            SET reviewed=1
+            WHERE id=%s
+        """, (booking_id,))
+
+        conn.commit()
+
+        cur.close()
+        conn.close()
 
         return jsonify({
-            "status":"success",
-            "message":"Ulasan berhasil dikirim."
+            "status": "success",
+            "message": "Ulasan berhasil dikirim."
         })
 
     except Exception as e:
 
         return jsonify({
-            "status":"error",
-            "message":str(e)
-        }),500
-    
+            "status": "error",
+            "message": str(e)
+        }), 500
     # ===========================
 # GET ULASAN DOKTER
 # ===========================
-@app.route("/api/dokter/<int:dokter_id>/ulasan")
+@app.route("/api/dokter/<int:dokter_id>/ulasan", methods=["GET"])
 def get_ulasan_dokter(dokter_id):
 
     try:
 
-        db=get_db()
-
-        cur=db.cursor(dictionary=True)
+        db = get_db()
+        cur = db.cursor(dictionary=True)
 
         cur.execute("""
-
             SELECT
-
                 u.id,
-
+                u.booking_id,
+                u.user_id,
+                u.dokter_id,
                 u.rating,
-
                 u.komentar,
-
                 u.created_at,
 
-                usr.nama
+                usr.username AS nama,
+                usr.foto_profil
 
             FROM ulasan u
 
             JOIN user usr
-            ON u.user_id=usr.id
+                ON usr.id = u.user_id
 
-            WHERE dokter_id=%s
+            WHERE u.dokter_id = %s
 
-            ORDER BY created_at DESC
+            ORDER BY u.created_at DESC
+        """, (dokter_id,))
 
-        """,(dokter_id,))
+        data = cur.fetchall()
 
-        data=cur.fetchall()
+        cur.close()
+        db.close()
 
         return jsonify({
-
-            "status":"success",
-
-            "data":data
-
+            "status": "success",
+            "data": data
         })
 
     except Exception as e:
-
         return jsonify({
-
-            "status":"error",
-
-            "message":str(e)
-
-        }),500
+            "status": "error",
+            "message": str(e)
+        }), 500
     
     # ===========================
 # RATING
@@ -2459,32 +2534,25 @@ def get_ulasan_dokter(dokter_id):
 @app.route("/api/dokter/<int:dokter_id>/rating")
 def rating_dokter(dokter_id):
 
-    db=get_db()
-
-    cur=db.cursor(dictionary=True)
+    db = get_db()
+    cur = db.cursor(dictionary=True)
 
     cur.execute("""
-
         SELECT
-
-        ROUND(AVG(rating),1) AS rating,
-
-        COUNT(*) AS total
-
+            ROUND(AVG(rating),1) AS rating,
+            COUNT(*) AS total
         FROM ulasan
-
         WHERE dokter_id=%s
+    """, (dokter_id,))
 
-    """,(dokter_id,))
+    data = cur.fetchone()
 
-    data=cur.fetchone()
+    cur.close()
+    db.close()
 
     return jsonify({
-
-        "status":"success",
-
-        "data":data
-
+        "status": "success",
+        "data": data
     })
 
 @app.route("/api/ulasan/<int:id>",methods=["PUT"])
@@ -2574,42 +2642,27 @@ def hapus_ulasan(id):
         }),500
     
 @app.route("/api/user/<int:user_id>/boleh-ulasan/<int:booking_id>")
-def boleh_ulasan(user_id,booking_id):
+def boleh_ulasan(user_id, booking_id):
 
-    db=get_db()
-
-    cur=db.cursor(dictionary=True)
+    db = get_db()
+    cur = db.cursor(dictionary=True)
 
     cur.execute("""
-
         SELECT *
-
         FROM booking
-
         WHERE
+            id=%s
+            AND user_id=%s
+            AND status='Selesai'
+    """, (booking_id, user_id))
 
-        id=%s
+    booking = cur.fetchone()
 
-        AND user_id=%s
-
-        AND status='selesai'
-
-    """,(booking_id,user_id))
-
-    booking=cur.fetchone()
-
-    if booking:
-
-        return jsonify({
-
-            "boleh":True
-
-        })
+    cur.close()
+    db.close()
 
     return jsonify({
-
-        "boleh":False
-
+        "boleh": booking is not None
     })
 
 @app.route('/api/user/update', methods=['POST', 'OPTIONS'])
@@ -3280,12 +3333,11 @@ def admin_get_orders():
     "total_price": float(row["total_price"] or 0),
 
     "user": {
-        "id": row["user_id"],
-        "nama": row["username"] or "Unknown",
-        "email": row["email"] or "-",
-        "foto": row["foto_profil"] or ""
-    },
-
+    "id": row["user_id"],
+    "nama": row["username"] or "Unknown",
+    "email": row["email"] or "-",
+    "foto": row["foto_profil"] or ""
+},
     "dokter": {
         "id": row["dokter_id"],
         "nama": row["nama_dokter"] or "Belum dipilih",
@@ -3334,6 +3386,17 @@ def confirm_order(booking_id):
             WHERE booking_id=%s
         """,(booking_id,))
 
+            # ubah jadwal menjadi booked
+        cur.execute("""
+            UPDATE jadwal_dokter
+            SET status='booked'
+            WHERE id = (
+                SELECT jadwal_id
+                FROM booking
+                WHERE id=%s
+            )
+        """, (booking_id,))
+
         # booking
         cur.execute("""
             UPDATE booking
@@ -3349,6 +3412,49 @@ def confirm_order(booking_id):
         return jsonify({
             "status":"success",
             "message":"Pembayaran berhasil dikonfirmasi."
+        })
+
+    except Exception as e:
+
+        return jsonify({
+            "status":"error",
+            "message":str(e)
+        }),500
+    
+@app.route("/api/booking/<int:booking_id>/finish", methods=["PUT"])
+def finish_booking(booking_id):
+
+    try:
+
+        conn = get_db()
+        cur = conn.cursor()
+
+        # booking selesai
+        cur.execute("""
+            UPDATE booking
+            SET status='Selesai'
+            WHERE id=%s
+        """, (booking_id,))
+
+        # jadwal kembali tersedia
+        cur.execute("""
+            UPDATE jadwal_dokter
+            SET status='tersedia'
+            WHERE id=(
+                SELECT jadwal_id
+                FROM booking
+                WHERE id=%s
+            )
+        """, (booking_id,))
+
+        conn.commit()
+
+        cur.close()
+        conn.close()
+
+        return jsonify({
+            "status":"success",
+            "message":"Konseling selesai"
         })
 
     except Exception as e:
@@ -3404,6 +3510,9 @@ def reject_order(booking_id):
     # ==================================================
 # DETAIL BOOKING USER
 # ==================================================
+# ==================================================
+# DETAIL BOOKING USER
+# ==================================================
 @app.route("/api/booking/<int:booking_id>/detail", methods=["GET"])
 def booking_detail(booking_id):
 
@@ -3416,18 +3525,19 @@ def booking_detail(booking_id):
             SELECT
 
                 b.id,
+                b.user_id,
+                b.dokter_id,
                 b.duration,
                 b.total_price,
                 b.status,
+                b.reviewed,
 
                 j.tanggal,
                 j.jam,
 
-                d.id AS dokter_id,
                 d.nama AS nama_dokter,
                 d.image_url,
                 d.tags,
-                d.no_hp,
 
                 p.metode,
                 p.nominal,
@@ -3451,8 +3561,7 @@ def booking_detail(booking_id):
             LEFT JOIN user u
                 ON u.id = b.user_id
 
-            WHERE b.id=%s
-
+            WHERE b.id = %s
         """, (booking_id,))
 
         data = cursor.fetchone()
@@ -3460,25 +3569,25 @@ def booking_detail(booking_id):
         cursor.close()
         conn.close()
 
-        if not data:
+        if data is None:
             return jsonify({
                 "status": "error",
                 "message": "Booking tidak ditemukan"
-            }),404
+            }), 404
 
         return jsonify({
-            "status":"success",
-            "data":data
+            "status": "success",
+            "data": data
         })
 
     except Exception as e:
 
         return jsonify({
-            "status":"error",
-            "message":str(e)
-        }),500    
+            "status": "error",
+            "message": str(e)
+        }), 500
     
-    # ==================================================
+ # ==================================================
 # HISTORY BOOKING USER
 # ==================================================
 @app.route("/api/history-booking/<int:user_id>", methods=["GET"])
@@ -3490,36 +3599,42 @@ def history_booking(user_id):
         cursor = conn.cursor(dictionary=True)
 
         cursor.execute("""
-    SELECT
+            SELECT
 
-        b.id,
-        b.user_id,
-        b.dokter_id,
-        b.status,
-        b.duration,
-        b.total_price,
-        b.reviewed,
+                b.id,
+                b.user_id,
+                b.dokter_id,
+                b.status,
+                b.duration,
+                b.total_price,
+                b.reviewed,
 
-        j.tanggal,
-        j.jam,
+                j.tanggal,
+                j.jam,
 
-        d.nama AS doctor_name,
-        d.image_url AS doctor_image,
-        d.tags AS doctor_category
+                d.nama AS doctor_name,
+                d.image_url AS doctor_image,
+                d.tags AS doctor_category,
 
-    FROM booking b
+                p.metode,
+                p.nominal,
+                p.status AS pembayaran_status
 
-    LEFT JOIN dokter d
-        ON d.id = b.dokter_id
+            FROM booking b
 
-    LEFT JOIN jadwal_dokter j
-        ON j.id = b.jadwal_id
+            LEFT JOIN dokter d
+                ON d.id = b.dokter_id
 
-    WHERE b.user_id=%s
+            LEFT JOIN jadwal_dokter j
+                ON j.id = b.jadwal_id
 
-    ORDER BY b.id DESC
+            LEFT JOIN pembayaran p
+                ON p.booking_id = b.id
 
-""", (user_id,))
+            WHERE b.user_id = %s
+
+            ORDER BY b.id DESC
+        """, (user_id,))
 
         data = cursor.fetchall()
 
@@ -3536,7 +3651,11 @@ def history_booking(user_id):
         return jsonify({
             "status": "error",
             "message": str(e)
-        }),500
+        }), 500
+    
+
+    
+
     print("=========== ROUTES ===========")
     print(app.url_map)
     print("==============================")

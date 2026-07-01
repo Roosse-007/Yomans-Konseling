@@ -6,36 +6,23 @@ import 'package:http/http.dart' as http;
 import 'package:yomans_konseling/models/ulasan_model.dart';
 
 class UlasanProvider extends ChangeNotifier {
-  // =========================
-  // BASE URL
-  // =========================
-
-  static const String baseUrl =
-      "http://127.0.0.1:5000/api";
-
-  // =========================
-  // DATA
-  // =========================
+  static const String baseUrl = "http://127.0.0.1:5000/api";
 
   List<UlasanModel> _listUlasan = [];
-
   List<UlasanModel> get listUlasan => _listUlasan;
 
   bool _loading = false;
-
   bool get loading => _loading;
 
   double _rating = 0;
-
   double get rating => _rating;
 
   int _totalUlasan = 0;
-
   int get totalUlasan => _totalUlasan;
 
-  // =========================
+  // ======================================
   // AMBIL ULASAN DOKTER
-  // =========================
+  // ======================================
 
   Future<void> getUlasanDokter(int dokterId) async {
     _loading = true;
@@ -43,52 +30,46 @@ class UlasanProvider extends ChangeNotifier {
 
     try {
       final response = await http.get(
-        Uri.parse(
-          "$baseUrl/dokter/$dokterId/ulasan",
-        ),
+        Uri.parse("$baseUrl/dokter/$dokterId/ulasan"),
       );
 
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
 
+        debugPrint("DATA ULASAN = ${json["data"]}");
+
         _listUlasan = (json["data"] as List)
-            .map(
-              (e) => UlasanModel.fromJson(e),
-            )
+            .map((e) => UlasanModel.fromJson(e))
             .toList();
+      } else {
+        debugPrint(response.body);
       }
     } catch (e) {
-      debugPrint(e.toString());
+      debugPrint("ERROR ULASAN : $e");
     }
 
     _loading = false;
     notifyListeners();
   }
 
-  // =========================
+  // ======================================
   // AMBIL RATING
-  // =========================
+  // ======================================
 
   Future<void> getRatingDokter(int dokterId) async {
     try {
       final response = await http.get(
-        Uri.parse(
-          "$baseUrl/dokter/$dokterId/rating",
-        ),
+        Uri.parse("$baseUrl/dokter/$dokterId/rating"),
       );
 
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
 
-        _rating = double.tryParse(
-              json["data"]["rating"].toString(),
-            ) ??
-            0;
+        _rating =
+            double.tryParse(json["data"]["rating"].toString()) ?? 0;
 
-        _totalUlasan = int.tryParse(
-              json["data"]["total"].toString(),
-            ) ??
-            0;
+        _totalUlasan =
+            int.tryParse(json["data"]["total"].toString()) ?? 0;
 
         notifyListeners();
       }
@@ -97,9 +78,9 @@ class UlasanProvider extends ChangeNotifier {
     }
   }
 
-  // =========================
+  // ======================================
   // TAMBAH ULASAN
-  // =========================
+  // ======================================
 
   Future<bool> tambahUlasan({
     required int bookingId,
@@ -130,9 +111,9 @@ class UlasanProvider extends ChangeNotifier {
     }
   }
 
-  // =========================
+  // ======================================
   // EDIT ULASAN
-  // =========================
+  // ======================================
 
   Future<bool> editUlasan({
     required int id,
@@ -158,9 +139,9 @@ class UlasanProvider extends ChangeNotifier {
     }
   }
 
-  // =========================
+  // ======================================
   // HAPUS ULASAN
-  // =========================
+  // ======================================
 
   Future<bool> hapusUlasan(int id) async {
     try {
@@ -175,18 +156,18 @@ class UlasanProvider extends ChangeNotifier {
     }
   }
 
-  // =========================
+  // ======================================
   // REFRESH
-  // =========================
+  // ======================================
 
   Future<void> refresh(int dokterId) async {
     await getRatingDokter(dokterId);
     await getUlasanDokter(dokterId);
   }
 
-  // =========================
+  // ======================================
   // CLEAR
-  // =========================
+  // ======================================
 
   void clear() {
     _listUlasan.clear();

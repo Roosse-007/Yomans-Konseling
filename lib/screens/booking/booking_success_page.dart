@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:yomans_konseling/providers/booking_provider.dart';
+import 'package:yomans_konseling/screens/booking/tambah_ulasan_page.dart';
 import 'package:yomans_konseling/screens/home/home.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 class BookingSuccessPage extends StatefulWidget {
   final int bookingId;
@@ -66,6 +69,8 @@ class _BookingSuccessPageState
           }
 
           final booking = provider.booking!;
+          debugPrint("STATUS = ${booking["status"]}");
+debugPrint("REVIEWED = ${booking["reviewed"]}");
 
         return SingleChildScrollView(
   padding: const EdgeInsets.all(18),
@@ -265,40 +270,184 @@ class _BookingSuccessPageState
 
       const SizedBox(height: 30),
 
-      SizedBox(
-        width: double.infinity,
-        height: 50,
-        child: ElevatedButton.icon(
-         onPressed: () {
+     SizedBox(
+  width: double.infinity,
+  height: 50,
+  child: ElevatedButton.icon(
+    onPressed: booking["status"] != "Lunas"
+        ? null
+        : () async {
 
-  print(
-    booking["no_hp"],
-  );
+            final konfirmasi = await showDialog<bool>(
+              context: context,
+              builder: (_) => AlertDialog(
+                title: const Text("Selesaikan Konseling"),
+                content: const Text(
+                  "Apakah sesi konseling telah selesai?",
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pop(context, false);
+                    },
+                    child: const Text("Batal"),
+                  ),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xff2D6A4F),
+                    ),
+                    onPressed: () {
+                      Navigator.pop(context, true);
+                    },
+                    child: const Text(
+                      "Selesai",
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+            );
 
-},
-          icon: const Icon(Icons.chat),
-          label: const Text("Hubungi Psikolog"),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xff2D6A4F),
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(15),
-            ),
-          ),
-        ),
+            if (konfirmasi != true) return;
+
+            try {
+
+              final response = await http.put(
+                Uri.parse(
+                  "http://127.0.0.1:5000/api/booking/${widget.bookingId}/finish",
+                ),
+              );
+
+              final result = jsonDecode(response.body);
+
+              if (response.statusCode == 200 &&
+                  result["status"] == "success") {
+
+                await provider.getDetailBooking(
+                  widget.bookingId,
+                );
+
+                if (!mounted) return;
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    backgroundColor: Colors.green,
+                    content: Text(
+                      "Konseling berhasil diselesaikan.",
+                    ),
+                  ),
+                );
+
+              } else {
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    backgroundColor: Colors.red,
+                    content: Text(
+                      result["message"] ?? "Terjadi kesalahan",
+                    ),
+                  ),
+                );
+
+              }
+
+            } catch (e) {
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  backgroundColor: Colors.red,
+                  content: Text(e.toString()),
+                ),
+              );
+
+            }
+
+          },
+    icon: const Icon(Icons.check_circle),
+    label: Text(
+      booking["status"] == "Selesai"
+          ? "Konseling Selesai"
+          : "Selesaikan Konseling",
+    ),
+    style: ElevatedButton.styleFrom(
+      backgroundColor: const Color(0xff2D6A4F),
+      foregroundColor: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(15),
       ),
+    ),
+  ),
+),
 
       const SizedBox(height: 15),
 
-           SizedBox(
-        width: double.infinity,
-        height: 50,
-        child: OutlinedButton.icon(
-          onPressed: () {},
-          icon: const Icon(Icons.star),
-          label: const Text("Beri Ulasan"),
-        ),
+SizedBox(
+  width: double.infinity,
+  height: 50,
+  child: OutlinedButton.icon(
+
+    style: OutlinedButton.styleFrom(
+      foregroundColor: const Color(0xff2D6A4F),
+      side: const BorderSide(
+        color: Color(0xff2D6A4F),
       ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(15),
+      ),
+    ),
+
+    onPressed: booking["status"] != "Selesai"
+        ? null
+        : booking["reviewed"] == 1
+            ? null
+            : () async {
+
+                final hasil =
+                    await Navigator.push(
+
+                  context,
+
+                  MaterialPageRoute(
+
+                    builder: (_) =>
+                        TambahUlasanPage(
+                      booking: booking,
+                    ),
+
+                  ),
+
+                );
+
+                if (hasil == true) {
+
+                  await provider.getDetailBooking(
+                    widget.bookingId,
+                  );
+
+                }
+
+              },
+
+    icon: Icon(
+
+      booking["reviewed"] == 1
+          ? Icons.check_circle
+          : Icons.star,
+
+    ),
+
+    label: Text(
+
+      booking["reviewed"] == 1
+
+          ? "Sudah Memberikan Ulasan"
+
+          : "Beri Ulasan",
+
+    ),
+
+  ),
+),
 const SizedBox(height: 25),
 const SizedBox(height: 15),
 

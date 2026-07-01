@@ -4,9 +4,11 @@ class UlasanModel {
   final int dokterId;
   final int userId;
   final int rating;
+
   final String komentar;
   final String nama;
   final String createdAt;
+  final String fotoProfil;
 
   UlasanModel({
     required this.id,
@@ -17,6 +19,7 @@ class UlasanModel {
     required this.komentar,
     required this.nama,
     required this.createdAt,
+    required this.fotoProfil,
   });
 
   factory UlasanModel.fromJson(Map<String, dynamic> json) {
@@ -29,6 +32,7 @@ class UlasanModel {
       komentar: json["komentar"] ?? "",
       nama: json["nama"] ?? "",
       createdAt: json["created_at"] ?? "",
+      fotoProfil: json["foto_profil"] ?? "",
     );
   }
 }

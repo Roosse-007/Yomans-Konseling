@@ -1218,21 +1218,23 @@ Widget _buildKontenUlasanPsikolog() {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
 
-            CircleAvatar(
-              radius: 24,
-              backgroundColor: const Color(0xff2d6a4f),
-              child: Text(
-                ulasan.nama.isNotEmpty
-                    ? ulasan.nama[0].toUpperCase()
-                    : "?",
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                ),
-              ),
-            ),
+CircleAvatar(
+  radius: 30,
+  backgroundColor: Colors.grey.shade200,
 
+  backgroundImage: ulasan.fotoProfil.isNotEmpty
+      ? NetworkImage(ulasan.fotoProfil)
+      : null,
+
+  child: ulasan.fotoProfil.isEmpty
+      ? Text(
+          ulasan.nama.substring(0, 1).toUpperCase(),
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+          ),
+        )
+      : null,
+),
             const SizedBox(width: 12),
 
             Expanded(

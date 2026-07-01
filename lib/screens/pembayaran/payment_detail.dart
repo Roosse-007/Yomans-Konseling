@@ -252,6 +252,18 @@ Future<void> uploadBukti() async {
     if (response.statusCode == 200 &&
         result["status"] == "success") {
 
+          await http.put(
+          Uri.parse(
+            "$baseUrl/api/jadwal/${widget.jadwalId}/status",
+          ),
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: jsonEncode({
+            "status": "booked",
+          }),
+        );
+
       showDialog(
         context: context,
         barrierDismissible: false,
