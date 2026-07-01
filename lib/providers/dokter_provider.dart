@@ -224,32 +224,43 @@ request.fields['harga_diskon'] =
 
   // ================= BOOKING =================
   Future<Map<String, dynamic>> buatBooking({
-    required int userId,
-    required int dokterId,
-    required String tanggal,
-    required String duration,
-  }) async {
-    final String url = '$_baseUrl/booking';
-    try {
-      final response = await http.post(
-        Uri.parse(url),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          "user_id": userId,
-          "dokter_id": dokterId,
-          "tanggal": tanggal,
-          "duration": duration,
-        }),
-      );
-      return jsonDecode(response.body);
-    } catch (e) {
-      return {
-        "status": "error",
-        "message": e.toString(),
-      };
-    }
-  }
+  required int userId,
+  required int dokterId,
+  required int jadwalId,
+  required String tanggal,
+  required String duration,
+}) async {
+  final String url = '$_baseUrl/booking';
 
+  try {
+    final response = await http.post(
+      Uri.parse(url),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: jsonEncode({
+        "user_id": userId,
+        "dokter_id": dokterId,
+        "jadwal_id": jadwalId,
+        "tanggal": tanggal,
+        "duration": duration,
+      }),
+    );
+
+    print("STATUS BOOKING = ${response.statusCode}");
+    print("BODY BOOKING = ${response.body}");
+
+    return jsonDecode(response.body);
+
+  } catch (e) {
+    print("BOOKING ERROR = $e");
+
+    return {
+      "status": "error",
+      "message": e.toString(),
+    };
+  }
+}
   // ================= EDIT DOKTER (SUDAH DIPERBAIKI DI DALAM CLASS) =================
   Future<bool> editDokter(Map<String, dynamic> data) async {
   try {

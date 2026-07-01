@@ -1,5 +1,7 @@
+import 'package:yomans_konseling/providers/admin_order_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:yomans_konseling/providers/booking_provider.dart';
 import 'package:yomans_konseling/providers/ulasan_provider.dart';
 import 'package:yomans_konseling/providers/favorit_provider.dart';
 
@@ -12,6 +14,7 @@ import 'screens/auth/login.dart';
 import 'screens/auth/splash_screen.dart'; // Pastikan path impor splash screen ini benar
 import 'screens/home/home.dart';
 import 'screens/admin/dashboard.dart';
+
 
 void main() {
   runApp(const MyApp());
@@ -48,6 +51,12 @@ class MyApp extends StatelessWidget {
   ChangeNotifierProvider(
     create: (_) => FavoritProvider(),
   ),
+  ChangeNotifierProvider(
+  create: (_) => AdminOrderProvider(),
+),
+ChangeNotifierProvider(
+  create: (_) => BookingProvider(),
+),
 ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,

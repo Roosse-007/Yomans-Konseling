@@ -1,4 +1,5 @@
 # ================= IMPORT =================
+from flask import send_from_directory
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from database.db import get_db
@@ -873,7 +874,6 @@ def dokter():
         return jsonify({"status": "error", "message": "Gagal mengambil dokter"}), 500
         
 # ================= BOOKING =================
-# ================= BOOKING =================
 @app.route("/api/booking", methods=["POST"])
 def booking():
     try:
@@ -888,11 +888,18 @@ def booking():
         # ================= AMBIL DATA =================
         user_id = data.get("user_id")
         dokter_id = data.get("dokter_id")
+        jadwal_id = data.get("jadwal_id")
         tanggal = data.get("tanggal")
         duration = data.get("duration")
 
         # ================= VALIDASI =================
-        if not user_id or not dokter_id or not tanggal or not duration:
+        if (
+            not user_id or
+            not dokter_id or
+            not jadwal_id or
+            not tanggal or
+            not duration
+        ):
             return jsonify({
                 "status": "error",
                 "message": "Data booking tidak lengkap"
@@ -926,43 +933,80 @@ def booking():
         harga_awal = float(dokter["harga_awal"] or 0)
         harga_diskon = float(dokter["harga_diskon"] or 0)
 
-        if harga_diskon > 0:
-            total_pembayaran = harga_diskon
+        harga_dasar = harga_diskon if harga_diskon > 0 else harga_awal
+
+        if duration.lower().strip() == "30 menit":
+            total_pembayaran = harga_dasar * 0.5
+
+        elif duration.lower().strip() == "1 jam":
+            total_pembayaran = harga_dasar
+
+        elif duration.lower().strip() == "1.5 jam":
+            total_pembayaran = harga_dasar * 1.5
+
+        elif duration.lower().strip() == "2 jam":
+            total_pembayaran = harga_dasar * 2
+
         else:
-            total_pembayaran = harga_awal
+            cur.close()
+            db.close()
+
+            return jsonify({
+                "status": "error",
+                "message": "Durasi tidak valid"
+            }), 400
+
+        total_pembayaran = int(round(total_pembayaran))
+        print("========== DEBUG BOOKING ==========")
+        print("Duration      :", duration)
+        print("Harga Awal    :", harga_awal)
+        print("Harga Diskon  :", harga_diskon)
+        print("Harga Dasar   :", harga_dasar)
+        print("Total Bayar   :", total_pembayaran)
+        print("===================================")
 
         # ================= SIMPAN BOOKING =================
         cur.execute("""
-            INSERT INTO booking
-            (
+                INSERT INTO booking
+                (
+                    user_id,
+                    dokter_id,
+                    jadwal_id,
+                    tanggal,
+                    duration,
+                    total_price,
+                    status,
+                    reviewed
+                )
+                VALUES
+                (
+                    %s,
+                    %s,
+                    %s,
+                    %s,
+                    %s,
+                    %s,
+                    %s,
+                    %s
+                )
+            """, (
                 user_id,
                 dokter_id,
+                jadwal_id,
                 tanggal,
-                total_price,
-                status,
-                reviewed
-            )
-            VALUES
-            (
-                %s,
-                %s,
-                %s,
-                %s,
-                %s,
-                %s
-            )
-        """, (
-            user_id,
-            dokter_id,
-            tanggal,
-            total_pembayaran,
-            "Menunggu Pembayaran",
-            0
-        ))
-
+                duration,
+                total_pembayaran,
+                "Menunggu Pembayaran",
+                0
+            ))
         db.commit()
 
         booking_id = cur.lastrowid
+        print("BOOKING BERHASIL")
+        print("BOOKING ID :", booking_id)
+
+        print("BOOKING ID =", booking_id)
+        print("TOTAL HARGA =", total_pembayaran)
 
         cur.close()
         db.close()
@@ -973,7 +1017,7 @@ def booking():
             "total_harga": total_pembayaran,
             "message": "Booking berhasil"
         }), 200
-
+        
     except Exception as e:
         print("BOOKING ERROR :", e)
 
@@ -994,23 +1038,23 @@ def get_va_details(booking_id):
         # Ambil data dari tabel booking
         cur.execute("SELECT id, total_price FROM booking WHERE id = %s", (booking_id,))
         booking = cur.fetchone()
-        
+            
         if not booking:
             return jsonify({"status": "error", "message": "Booking tidak ditemukan"}), 404
-            
+                
         # Logika VA: Biasanya di sini Anda memanggil API Payment Gateway (Xendit/Midtrans)
-        # Untuk simulasi, kita kembalikan data statis sesuai desain Anda
+         # Untuk simulasi, kita kembalikan data statis sesuai desain Anda
         return jsonify({
-            "status": "success",
+             "status": "success",
             "data": {
                 "va_number": "7000701501999576408", 
                 "bank": "BCA",
                 "account_name": "Yomansid",
                 "amount": booking['total_price']
-            }
-        })
+                }
+            })
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+            return jsonify({"status": "error", "message": str(e)}), 500
 # ================= ARTIKEL MENTAL =================
 @app.route("/api/artikel", methods=["GET"])
 def artikel():
@@ -1516,23 +1560,37 @@ def admin_tambah_dokter():
                 "message": "Data Nama, Tags, atau Harga Diskon wajib diisi"
             }), 400
 
-        # 4. FOTO (LOGIKA UPLOAD YANG DISINKRONKAN)
+                # ===============================
+        # 4. FOTO (UPLOAD FOTO DOKTER)
+        # ===============================
         foto = ""
+
         if 'foto' in request.files:
             file = request.files['foto']
+
             if file and file.filename != '':
+
                 filename = secure_filename(file.filename)
-                
-                # Gunakan folder 'uploads' utama yang sejajar dengan app.py
-                base_upload_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
+
+                # Folder penyimpanan gambar
+                base_upload_dir = os.path.join(
+                    os.path.dirname(os.path.abspath(__file__)),
+                    "static",
+                    "uploads"
+                )
+
                 os.makedirs(base_upload_dir, exist_ok=True)
-                
-                filepath = os.path.join(base_upload_dir, filename)
+
+                filepath = os.path.join(
+                    base_upload_dir,
+                    filename
+                )
+
                 file.save(filepath)
-                
-                # 🔥 FIX UTAMA: Simpan path relatif "uploads/nama_file.png" ke database MySQL
-                # Ini mencegah penulisan "uploads/uploads/..." di sisi Flutter
-                foto = f"uploads/{filename}"
+
+                # Simpan URL lengkap ke database
+                foto = f"http://127.0.0.1:5000/static/uploads/{filename}"
+
 
         # 5. DATABASE INSERT
         db = get_db() # Pastikan menggunakan fungsi koneksi database Anda yang benar
@@ -2264,16 +2322,18 @@ def tambah_ulasan():
 
         # cek booking
         cur.execute("""
-            SELECT *
-            FROM booking
-            WHERE id=%s
-            AND user_id=%s
-            AND dokter_id=%s
-        """, (
-            booking_id,
-            user_id,
-            dokter_id,
-        ))
+        SELECT *
+        FROM booking
+        WHERE
+        id=%s
+        AND user_id=%s
+        AND dokter_id=%s
+        AND status='Selesai'
+""",(
+    booking_id,
+    user_id,
+    dokter_id
+))
 
         booking = cur.fetchone()
 
@@ -2931,6 +2991,9 @@ def create_payment():
         rekening = BANK_ACCOUNT[metode]["rekening"]
         nama = BANK_ACCOUNT[metode]["nama"]
         nominal = booking["total_price"]
+        
+        print("BOOKING YANG AKAN DIBAYAR :", booking_id)
+        print("NOMINAL :", nominal)
 
         cursor.execute("""
             INSERT INTO pembayaran
@@ -2960,6 +3023,8 @@ def create_payment():
         ))
 
         conn.commit()
+        print("PEMBAYARAN BERHASIL")
+        print("PAYMENT ID :", cursor.lastrowid)
 
         payment_id = cursor.lastrowid
 
@@ -2987,23 +3052,32 @@ def create_payment():
 # ==========================================
 @app.route('/api/payment/<int:booking_id>', methods=['GET'])
 def get_payment(booking_id):
+
     try:
+
         conn = get_db()
         cursor = conn.cursor(dictionary=True)
 
         cursor.execute("""
             SELECT
-                id,
-                booking_id,
-                metode,
-                nomor_rekening,
-                nama_pemilik,
-                nominal,
-                bukti_transfer,
-                status,
-                created_at
-            FROM pembayaran
-            WHERE booking_id=%s
+                p.id,
+                p.booking_id,
+                p.metode,
+                p.nomor_rekening,
+                p.nama_pemilik,
+
+                b.total_price AS nominal,
+
+                p.bukti_transfer,
+                p.status,
+                p.created_at
+
+            FROM pembayaran p
+
+            INNER JOIN booking b
+                ON b.id = p.booking_id
+
+            WHERE p.booking_id = %s
         """, (booking_id,))
 
         payment = cursor.fetchone()
@@ -3015,20 +3089,20 @@ def get_payment(booking_id):
             return jsonify({
                 "status": "error",
                 "message": "Data pembayaran tidak ditemukan"
-            }),404
+            }), 404
 
         return jsonify({
-            "status":"success",
-            "data":payment
+            "status": "success",
+            "data": payment
         })
 
     except Exception as e:
+
         return jsonify({
-            "status":"error",
-            "message":str(e)
-        }),500
-        
-        # ==================================================
+            "status": "error",
+            "message": str(e)
+        }), 500
+# ==================================================
 # UPLOAD BUKTI TRANSFER
 # ==================================================
 @app.route("/api/upload_bukti", methods=["POST"])
@@ -3099,7 +3173,7 @@ def upload_bukti():
 # ADMIN - DAFTAR PEMBAYARAN
 # ================================================
 
-        # ==================================================
+# ==================================================
 # ADMIN KONFIRMASI PEMBAYARAN
 # ==================================================
 @app.route("/api/admin/pembayaran", methods=["GET"])
@@ -3141,6 +3215,313 @@ def admin_pembayaran():
     ORDER BY pembayaran.created_at DESC
 """)
         data = cursor.fetchall()
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            "status": "success",
+            "data": data
+        })
+
+    except Exception as e:
+
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }),500
+
+# ==================================================
+# ADMIN KELOLA ORDER
+# ==================================================        
+@app.route("/api/admin/orders", methods=["GET"])
+def admin_get_orders():
+    try:
+        conn = get_db()
+        cursor = conn.cursor(dictionary=True)
+
+        sql = """
+            SELECT
+                b.id AS booking_id,
+                b.status AS booking_status,
+                b.duration,
+                b.total_price,
+                u.id AS user_id,
+                u.username,
+                u.email,
+                u.foto_profil,
+                d.id AS dokter_id,
+                d.nama AS nama_dokter,
+                d.image_url AS foto_dokter,
+                j.tanggal,
+                j.jam,
+                p.id AS pembayaran_id,
+                p.metode,
+                p.nominal,
+                p.status AS pembayaran_status,
+                p.bukti_transfer,
+                p.created_at AS waktu_transfer
+            FROM booking b
+            LEFT JOIN user u ON u.id = b.user_id
+            LEFT JOIN dokter d ON d.id = b.dokter_id
+            LEFT JOIN jadwal_dokter j ON j.id = b.jadwal_id
+            LEFT JOIN pembayaran p ON p.booking_id = b.id
+            ORDER BY b.id DESC
+        """
+
+        cursor.execute(sql)
+        rows = cursor.fetchall()
+        
+        data = []
+        for row in rows:
+            data.append({
+    "booking_id": row["booking_id"],
+    "booking_status": row["booking_status"] or "Pending",
+    "duration": row["duration"] or "0 jam",
+    "total_price": float(row["total_price"] or 0),
+
+    "user": {
+        "id": row["user_id"],
+        "nama": row["username"] or "Unknown",
+        "email": row["email"] or "-",
+        "foto": row["foto_profil"] or ""
+    },
+
+    "dokter": {
+        "id": row["dokter_id"],
+        "nama": row["nama_dokter"] or "Belum dipilih",
+        "foto": row["foto_dokter"] or ""
+    },
+
+    "tanggal": str(row["tanggal"]) if row["tanggal"] else "-",
+    "jam": row["jam"] or "-",
+
+    "payment": {
+        "pembayaran_id": row["pembayaran_id"] or 0,
+        "metode": row["metode"] or "-",
+        "nominal": float(row["nominal"] or 0),
+        "status": row["pembayaran_status"] or "Belum Bayar",
+        "bukti": row["bukti_transfer"] or ""
+    }
+})
+            
+        cursor.close()
+        conn.close()
+
+        return jsonify({"status": "success", "data": data}), 200
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+# ==================================================
+# API KONFIRMASI PEMBAYARAN
+# ==================================================        
+@app.route("/api/admin/orders/<int:booking_id>/confirm", methods=["PUT"])
+def confirm_order(booking_id):
+
+    try:
+
+        conn = get_db()
+        cur = conn.cursor()
+
+        # pembayaran
+        cur.execute("""
+            UPDATE pembayaran
+            SET
+                status='success',
+                verified_at=NOW()
+            WHERE booking_id=%s
+        """,(booking_id,))
+
+        # booking
+        cur.execute("""
+            UPDATE booking
+            SET status='Lunas'
+            WHERE id=%s
+        """,(booking_id,))
+
+        conn.commit()
+
+        cur.close()
+        conn.close()
+
+        return jsonify({
+            "status":"success",
+            "message":"Pembayaran berhasil dikonfirmasi."
+        })
+
+    except Exception as e:
+
+        return jsonify({
+            "status":"error",
+            "message":str(e)
+        }),500
+# ==================================================
+# API TOLAK PEMBAYARAN
+# ==================================================       
+@app.route("/api/admin/orders/<int:booking_id>/reject", methods=["PUT"])
+def reject_order(booking_id):
+
+    try:
+
+        conn = get_db()
+        cur = conn.cursor()
+
+        # pembayaran
+        cur.execute("""
+            UPDATE pembayaran
+            SET
+                status='rejected',
+                verified_at=NULL
+            WHERE booking_id=%s
+        """,(booking_id,))
+
+        # booking
+        cur.execute("""
+            UPDATE booking
+            SET status='Menunggu Pembayaran'
+            WHERE id=%s
+        """,(booking_id,))
+
+        conn.commit()
+
+        cur.close()
+        conn.close()
+
+        return jsonify({
+            "status":"success",
+            "message":"Pembayaran ditolak."
+        })
+
+    except Exception as e:
+
+        return jsonify({
+            "status":"error",
+            "message":str(e)
+        }),500
+    
+    # ==================================================
+# DETAIL BOOKING USER
+# ==================================================
+@app.route("/api/booking/<int:booking_id>/detail", methods=["GET"])
+def booking_detail(booking_id):
+
+    try:
+
+        conn = get_db()
+        cursor = conn.cursor(dictionary=True)
+
+        cursor.execute("""
+            SELECT
+
+                b.id,
+                b.duration,
+                b.total_price,
+                b.status,
+
+                j.tanggal,
+                j.jam,
+
+                d.id AS dokter_id,
+                d.nama AS nama_dokter,
+                d.image_url,
+                d.tags,
+                d.no_hp,
+
+                p.metode,
+                p.nominal,
+                p.status AS pembayaran_status,
+                p.created_at,
+
+                u.username,
+                u.email
+
+            FROM booking b
+
+            LEFT JOIN jadwal_dokter j
+                ON j.id = b.jadwal_id
+
+            LEFT JOIN dokter d
+                ON d.id = b.dokter_id
+
+            LEFT JOIN pembayaran p
+                ON p.booking_id = b.id
+
+            LEFT JOIN user u
+                ON u.id = b.user_id
+
+            WHERE b.id=%s
+
+        """, (booking_id,))
+
+        data = cursor.fetchone()
+
+        cursor.close()
+        conn.close()
+
+        if not data:
+            return jsonify({
+                "status": "error",
+                "message": "Booking tidak ditemukan"
+            }),404
+
+        return jsonify({
+            "status":"success",
+            "data":data
+        })
+
+    except Exception as e:
+
+        return jsonify({
+            "status":"error",
+            "message":str(e)
+        }),500    
+    
+    # ==================================================
+# HISTORY BOOKING USER
+# ==================================================
+@app.route("/api/history-booking/<int:user_id>", methods=["GET"])
+def history_booking(user_id):
+
+    try:
+
+        conn = get_db()
+        cursor = conn.cursor(dictionary=True)
+
+        cursor.execute("""
+    SELECT
+
+        b.id,
+        b.user_id,
+        b.dokter_id,
+        b.status,
+        b.duration,
+        b.total_price,
+        b.reviewed,
+
+        j.tanggal,
+        j.jam,
+
+        d.nama AS doctor_name,
+        d.image_url AS doctor_image,
+        d.tags AS doctor_category
+
+    FROM booking b
+
+    LEFT JOIN dokter d
+        ON d.id = b.dokter_id
+
+    LEFT JOIN jadwal_dokter j
+        ON j.id = b.jadwal_id
+
+    WHERE b.user_id=%s
+
+    ORDER BY b.id DESC
+
+""", (user_id,))
+
+        data = cursor.fetchall()
 
         cursor.close()
         conn.close()
@@ -3156,7 +3537,9 @@ def admin_pembayaran():
             "status": "error",
             "message": str(e)
         }),500
-    
+    print("=========== ROUTES ===========")
     print(app.url_map)
+    print("==============================")
+
 if __name__ == "__main__":
     app.run(debug=True, use_reloader=False, host="0.0.0.0", port=5000)

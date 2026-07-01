@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:yomans_konseling/models/ulasan_model.dart';
+import 'package:yomans_konseling/providers/booking_provider.dart';
 import 'package:yomans_konseling/screens/pembayaran/payment.dart';
 import 'package:yomans_konseling/utils/currency_helper.dart';
 import 'package:yomans_konseling/providers/ulasan_provider.dart';
@@ -47,6 +48,8 @@ class _DetailBookingPageState extends State<DetailBookingPage> {
 
 
 late UlasanProvider ulasanProvider;
+
+
 
 
 @override
@@ -244,36 +247,24 @@ switch (_pilihanDurasi) {
     break;
 }
 
-// Harga setelah dikalikan durasi
 final int hargaAwalFinal =
     (hargaAwal * faktor).round();
 
 final int hargaDiskonFinal =
     (hargaDiskon * faktor).round();
 
-// Format rupiah
-String hargaCoret =
-    rupiah(hargaAwalFinal);
+String hargaCoret = rupiah(hargaAwalFinal);
+String hargaFix = rupiah(hargaDiskonFinal);
 
-String hargaFix =
-    rupiah(hargaDiskonFinal);
+int diskon = (((hargaAwalFinal - hargaDiskonFinal) /
+        hargaAwalFinal) *
+    100)
+    .round();
 
-// Hitung persen diskon otomatis
-int diskon = 0;
-String diskonPersen = '';
+bool adaDiskon = diskon > 0;
 
-if (hargaAwalFinal > 0 &&
-    hargaDiskonFinal > 0) {
+String diskonPersen = "-$diskon%";
 
-  diskon = (((hargaAwalFinal - hargaDiskonFinal) /
-          hargaAwalFinal) *
-      100)
-      .round();
-
-  diskonPersen = '-$diskon%';
-}
-
-final bool adaDiskon = diskon > 0;
 
             return Container(
               decoration: BoxDecoration(
@@ -382,21 +373,21 @@ final bool adaDiskon = diskon > 0;
                         ),
                         const SizedBox(height: 12),
                        Row(
-  crossAxisAlignment: CrossAxisAlignment.start,
-  children: [
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
 
-    const SizedBox(width: 26),
+                            const SizedBox(width: 26),
 
-    Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
 
-        if (adaDiskon)
-          Row(
-            children: [
+                                if (adaDiskon)
+                                  Row(
+                                    children: [
                                     Text(hargaCoret, style: TextStyle(fontSize: 11, color: Colors.grey[400], decoration: TextDecoration.lineThrough)),
                                     const SizedBox(width: 4),
-              Container(
+                                  Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                                       color: Colors.red[50],
                                       child: Text(diskonPersen, style: const TextStyle(color: Colors.red, fontSize: 9, fontWeight: FontWeight.bold)),
@@ -462,6 +453,7 @@ final bool adaDiskon = diskon > 0;
                                         _pageContext!,
                                         listen: false,
                                       );
+                                      
 
                                       final auth = Provider.of<AuthProvider>(
                                         _pageContext!,
@@ -496,45 +488,43 @@ final bool adaDiskon = diskon > 0;
                                       final String tanggalBooking =
                                           "${_selectedJadwal!["tanggal"]} $jam:00";
                                                                             
-                                                                            var res = await provider.buatBooking(
-                                        userId: auth.userId,
-                                        dokterId: dokterId,
-                                        tanggal: tanggalBooking,
-                                        duration: _pilihanDurasi,
-                                      );
+                                      var res = await provider.buatBooking(
+  userId: auth.userId,
+  dokterId: dokterId,
+  jadwalId: _selectedJadwalId!,
+  tanggal: tanggalBooking,
+  duration: _pilihanDurasi,
+);
 
-                                       
+print("HASIL BOOKING = $res");
 
-                                    navigator.pop();
-// await updateStatusJadwal(
-//   _selectedJadwalId!,
-//   "booked",
-// );
+navigator.pop();
 
-//
-                                          final int jadwalId = _selectedJadwalId!;
+final int jadwalId = _selectedJadwalId!;
 
-                                          if (!mounted) return;
+if (!mounted) return;
 
-                                          setState(() {
-                                            _selectedJadwalId = null;
-                                            _selectedJadwal = null;
-                                          });
+setState(() {
+  _selectedJadwalId = null;
+  _selectedJadwal = null;
+});
 
-                                          if (res != null && res["status"] == "success") {
+if (res["status"] == "success") {
 
-                                          final int bookingId = res["booking_id"];
+  print("BOOKING ID = ${res["booking_id"]}");
 
-                                          await Navigator.push(
-                                            _pageContext!,
-                                            MaterialPageRoute(
-                                              builder: (_) => PaymentPage(
-                                                bookingId: bookingId,
-                                                jadwalId: jadwalId,
-                                              ),
-                                            ),
-                                          );
-                                        }else {
+  final int bookingId = res["booking_id"];
+
+  await Navigator.push(
+    _pageContext!,
+    MaterialPageRoute(
+      builder: (_) => PaymentPage(
+        bookingId: bookingId,
+        jadwalId: jadwalId,
+      ),
+    ),
+  );
+}else {
                                         String pesanError = res != null ? res['message'] : 'Terjadi kesalahan respon';
                                         messenger.showSnackBar(
                                           SnackBar(content: Text('Gagal booking: $pesanError')),

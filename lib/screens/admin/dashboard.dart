@@ -11,6 +11,7 @@ import 'package:yomans_konseling/screens/berita/admin_berita_screen.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:yomans_konseling/services/api_service.dart';
+import 'package:yomans_konseling/screens/admin/kelola_order.dart';
 
 
 
@@ -488,6 +489,7 @@ Row(
 _buildDashboardCard(
   icon: Icons.psychology,
   iconColor: Colors.green,
+  buttonColor: Colors.green,
   title: "Kelola Psikolog",
   subtitle: "Data psikolog yang terdaftar",
   buttonText: "Buka Daftar Psikolog",
@@ -508,6 +510,7 @@ const SizedBox(height: 16),
 _buildDashboardCard(
   icon: Icons.menu_book,
   iconColor: Colors.blue,
+  buttonColor: Colors.blue,
   title: "Kelola Artikel & Edukasi",
   subtitle: "Kelola artikel dan edukasi",
   buttonText: "Buka Daftar Artikel",
@@ -528,6 +531,7 @@ const SizedBox(height: 16),
 _buildDashboardCard(
   icon: Icons.health_and_safety,
   iconColor: Colors.purple,
+  buttonColor: Colors.purple,
   title: "Kelola Gejala",
   subtitle: "Kelola data gejala konseling",
   buttonText: "Buka Daftar Gejala",
@@ -541,8 +545,24 @@ _buildDashboardCard(
   },
 ),
 
-const SizedBox(height: 16),
-  
+// ================= KELOLA ORDER =================
+
+_buildDashboardCard(
+  icon: Icons.health_and_safety,
+  iconColor: const Color.fromARGB(255, 209, 122, 29),
+  buttonColor: Colors.orange,
+  title: "Kelola Order",
+  subtitle: "Kelola data booking/konsultasi yang masuk",
+  buttonText: "Buka Daftar Order",
+  onTap: () {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const KelolaOrderPage(),
+      ),
+    );
+  },
+),
 
 
 // ================= AKSI CEPAT =================
@@ -739,6 +759,7 @@ Widget _buildDashboardCard({
   required String subtitle,
   required String buttonText,
   required VoidCallback onTap,
+  required Color buttonColor,
 }) {
   return Container(
     padding: const EdgeInsets.all(16),
@@ -775,6 +796,7 @@ Widget _buildDashboardCard({
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+
               Text(
                 title,
                 style: TextStyle(
@@ -783,25 +805,48 @@ Widget _buildDashboardCard({
                   color: primaryGreen,
                 ),
               ),
+
               const SizedBox(height: 4),
+
               Text(
                 subtitle,
                 style: const TextStyle(
                   color: Colors.black54,
                 ),
               ),
+
+      const SizedBox(height: 14),
+
+      SizedBox(
+        width: double.infinity,
+        height: 46,
+        child: ElevatedButton(
+          onPressed: onTap,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: buttonColor,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+            buttonText,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 16,
+              ),
             ],
           ),
         ),
-
-        ElevatedButton(
-          onPressed: onTap,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: iconColor,
-          ),
-          child: Text(
-            buttonText,
-            style: const TextStyle(color: Colors.white),
+      ),
+    ],
           ),
         ),
       ],

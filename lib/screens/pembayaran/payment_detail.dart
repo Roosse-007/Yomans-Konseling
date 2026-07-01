@@ -27,6 +27,117 @@ class PaymentDetailPage extends StatefulWidget {
 
 class _PaymentDetailPageState extends State<PaymentDetailPage> {
 
+Color getStatusColor() {
+
+  switch(payment!["status"]){
+
+    case "pending":
+
+      return Colors.orange;
+
+    case "waiting_verification":
+
+      return Colors.blue;
+
+    case "success":
+
+      return Colors.green;
+
+    case "rejected":
+
+      return Colors.red;
+
+    default:
+
+      return Colors.grey;
+
+  }
+
+}
+
+IconData getStatusIcon(){
+
+  switch(payment!["status"]){
+
+    case "pending":
+
+      return Icons.payment;
+
+    case "waiting_verification":
+
+      return Icons.access_time;
+
+    case "success":
+
+      return Icons.check_circle;
+
+    case "rejected":
+
+      return Icons.cancel;
+
+    default:
+
+      return Icons.info;
+
+  }
+
+}
+
+String getStatusTitle(){
+
+  switch(payment!["status"]){
+
+    case "pending":
+
+      return "Menunggu Pembayaran";
+
+    case "waiting_verification":
+
+      return "Menunggu Verifikasi Admin";
+
+    case "success":
+
+      return "Pembayaran Berhasil";
+
+    case "rejected":
+
+      return "Pembayaran Ditolak";
+
+    default:
+
+      return "-";
+
+  }
+
+}
+
+String getStatusDescription(){
+
+  switch(payment!["status"]){
+
+    case "pending":
+
+      return "Silakan upload bukti transfer.";
+
+    case "waiting_verification":
+
+      return "Bukti transfer sudah dikirim. Mohon tunggu admin melakukan verifikasi.";
+
+    case "success":
+
+      return "Pembayaran telah dikonfirmasi oleh admin. Booking sudah aktif.";
+
+    case "rejected":
+
+      return "Bukti transfer ditolak. Silakan upload bukti transfer yang benar.";
+
+    default:
+
+      return "";
+
+  }
+
+}
   bool loading = true;
   bool uploading = false;
 
@@ -318,15 +429,16 @@ Widget build(BuildContext context) {
 
                   const SizedBox(height: 5),
 
-                    Text(
-                      rupiah.format(payment!["nominal"]),
-                      style: const TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.orange,
-                      ),
-                    ),
-
+                   Text(
+  rupiah.format(
+    double.tryParse(payment!["nominal"].toString()) ?? 0,
+  ),
+  style: const TextStyle(
+    fontSize: 28,
+    fontWeight: FontWeight.bold,
+    color: Colors.orange,
+  ),
+),
                   const Divider(height: 35),
 
                   const Text(
@@ -463,87 +575,99 @@ Widget build(BuildContext context) {
 
 ],
 
-SizedBox(
-  width: double.infinity,
-  child: OutlinedButton.icon(
-    onPressed: pilihBukti,
-    icon: const Icon(Icons.file_upload),
-    label: const Text("Pilih Bukti Transfer"),
-    style: OutlinedButton.styleFrom(
-      foregroundColor: const Color(0xFF2E6B33),
-      side: const BorderSide(
-        color: Color(0xFF2E6B33),
-      ),
-      padding: const EdgeInsets.symmetric(vertical: 14),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-    ),
-  ),
-),
+if (payment!["status"] == "pending" ||
+    payment!["status"] == "rejected") ...[
 
-const SizedBox(height: 20),
-
-SizedBox(
-  width: double.infinity,
-  height: 50,
-  child: ElevatedButton.icon(
-    onPressed: uploading ? null : uploadBukti,
-    icon: uploading
-        ? const SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: Colors.white,
-            ),
-          )
-        : const Icon(Icons.cloud_upload),
-
-    label: Text(
-      uploading
-          ? "Mengupload..."
-          : "Upload Bukti Transfer",
-    ),
-
-    style: ElevatedButton.styleFrom(
-      backgroundColor: const Color(0xFF2E6B33),
-      foregroundColor: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-    ),
-  ),
-),
-
-const SizedBox(height: 30),
-
-Container(
-  padding: const EdgeInsets.all(15),
-  decoration: BoxDecoration(
-    color: Colors.orange.shade50,
-    borderRadius: BorderRadius.circular(10),
-    border: Border.all(
-      color: Colors.orange,
-    ),
-  ),
-  child: const Row(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-
-      Icon(
-        Icons.info_outline,
-        color: Colors.orange,
-      ),
-
-      SizedBox(width: 10),
-
-      Expanded(
-        child: Text(
-          "Setelah bukti transfer diupload, admin akan melakukan verifikasi pembayaran. Booking akan aktif setelah pembayaran dikonfirmasi.",
+  SizedBox(
+    width: double.infinity,
+    child: OutlinedButton.icon(
+      onPressed: pilihBukti,
+      icon: const Icon(Icons.file_upload),
+      label: const Text("Pilih Bukti Transfer"),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: const Color(0xFF2E6B33),
+        side: const BorderSide(
+          color: Color(0xFF2E6B33),
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
         ),
       ),
+    ),
+  ),
 
+  const SizedBox(height: 20),
+
+  SizedBox(
+    width: double.infinity,
+    height: 50,
+    child: ElevatedButton.icon(
+      onPressed: uploading ? null : uploadBukti,
+      icon: uploading
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
+            )
+          : const Icon(Icons.cloud_upload),
+      label: Text(
+        uploading
+            ? "Mengupload..."
+            : "Upload Bukti Transfer",
+      ),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFF2E6B33),
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+    ),
+  ),
+
+  const SizedBox(height: 30),
+
+],
+
+Container(
+  width: double.infinity,
+  padding: const EdgeInsets.all(16),
+  decoration: BoxDecoration(
+    color: getStatusColor().withOpacity(.15),
+    borderRadius: BorderRadius.circular(15),
+    border: Border.all(
+      color: getStatusColor(),
+    ),
+  ),
+  child: Row(
+    children: [
+      Icon(
+        getStatusIcon(),
+        color: getStatusColor(),
+      ),
+      const SizedBox(width: 12),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              getStatusTitle(),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: getStatusColor(),
+              ),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              getStatusDescription(),
+            ),
+          ],
+        ),
+      ),
     ],
   ),
 ),

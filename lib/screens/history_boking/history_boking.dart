@@ -1,9 +1,11 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:yomans_konseling/providers/ulasan_provider.dart';
 import 'package:yomans_konseling/providers/user_provider.dart';
+import 'package:yomans_konseling/screens/booking/booking_success_page.dart';
 // Pastikan path import ini sesuai dengan struktur folder di proyek Anda
 import '../../providers/auth_provider.dart'; 
 
@@ -35,28 +37,37 @@ Future<void> fetchBookingHistory() async {
 
   try {
 
-    final userId =
-        context.read<UserProvider>().id;
+   final authProvider = context.read<AuthProvider>();
 
-    if (userId == null) {
-      throw Exception("User belum login");
-    }
+final userId = authProvider.userId;
 
-    final url = Uri.parse(
-      "$baseUrl/api/history/$userId",
-    );
+print("USER ID HISTORY = $userId");
+
+
+   if (userId == 0) {
+  throw Exception("User belum login");
+}
+
+   final url = Uri.parse(
+  "$baseUrl/api/history-booking/$userId",
+);
 
     final response = await http.get(url);
+
+    print("STATUS = ${response.statusCode}");
+    print("BODY = ${response.body}");
 
     if (response.statusCode == 200) {
 
       final result =
           jsonDecode(response.body);
+          print(result);
 
       setState(() {
 
         bookingHistory =
             result["data"] ?? [];
+            print("JUMLAH HISTORY = ${bookingHistory.length}");
 
         isLoading = false;
 
@@ -369,21 +380,42 @@ await fetchBookingHistory();
                     // Validasi status review dari database SQL (Bisa berupa int 1/0 atau bool)
                     final bool isReviewed = item["reviewed"] == true || item["reviewed"] == 1;
 
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 18),
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.04),
-                            blurRadius: 10,
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        children: [
+                  return InkWell(
+  borderRadius: BorderRadius.circular(20),
+  onTap: () {
+
+  print("================");
+  print(item);
+  print("BOOKING ID = ${item["id"]}");
+  print("================");
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => BookingSuccessPage(
+          bookingId: item["id"],
+        ),
+      ),
+    );
+
+  },
+  child: Container(
+    margin: const EdgeInsets.only(bottom: 18),
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.08),
+          blurRadius: 8,
+        ),
+      ],
+    ),
+
+    child: Column(
+      children: [
+
                           Row(
                             children: [
                               CircleAvatar(
@@ -408,8 +440,8 @@ await fetchBookingHistory();
                                       style: const TextStyle(color: Colors.grey),
                                     ),
                                     const SizedBox(height: 8),
-                                    Text("Tanggal: ${item["booking_date"] ?? ""}"),
-                                    Text("Jam: ${item["booking_time"] ?? ""}"),
+                                    Text("Tanggal: ${item["tanggal"] ?? ""}"),
+                                   Text("Jam: ${item["jam"] ?? ""}"),
                                   ],
                                 ),
                               ),
@@ -486,6 +518,7 @@ await fetchBookingHistory();
                           ),
                         ],
                       ),
+  )
                     );
                   },
                 ),
